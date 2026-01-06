@@ -408,15 +408,158 @@ Both providers handle CORS properly:
 
 ---
 
-## 📊 Comparison with Upstream
+## 📊 Comparison with Original Word-GPT-Plus
 
-| Feature | Upstream v2.0.0 | This Fork |
-|---------|----------------|-----------|
-| Providers | OpenAI, Azure, Gemini, Ollama, Groq | + Mistral, Open WebUI |
-| Model Lists | Static/hardcoded | Dynamic for Open WebUI |
-| Mistral Support | Via OpenAI adapter (CORS issues) | Native implementation |
-| Open WebUI Support | Via OpenAI adapter | First-class with model discovery |
-| Multi-backend Support | No | Yes (via Open WebUI) |
+### Directory Structure Comparison
+
+```
+Original (word-GPT-Plus)         │  Fork (word-GPT-Plus-for-mistral-and-openwebui)
+─────────────────────────────────┼─────────────────────────────────────────────────
+src/                             │  src/
+├── components/ (1 file)         │  ├── components/ (1 file)
+├── i18n/                        │  ├── i18n/
+│   └── api/ (3 files)           │  │   └── api/ (3 files) - same structure
+├── pages/ (2 files)             │  ├── pages/ (4 files) - +2 CSS files
+├── router/                      │  ├── router/
+├── types/ (1 file)              │  ├── types/ (7 files) - NEW: expanded types
+├── utils/ (9 files)             │  ├── utils/ (21 files) - EXPANDED
+│   ├── settingForm.ts           │  │   ├── settingForm.ts - MODIFIED
+│   ├── settingPreset.ts         │  │   ├── settingPreset.ts - +Mistral, +OpenWebUI
+│   ├── constant.ts              │  │   ├── constant.ts - +new providers
+│   ├── enum.ts                  │  │   ├── enum.ts - +localStorage keys
+│   ├── common.ts                │  │   ├── common.ts - +auth checks
+│   ├── wordTools.ts             │  │   ├── wordTools/ - MODULARIZED (6 files)
+│   ├── generalTools.ts          │  │   ├── generalTools.ts
+│   ├── wordFormatter.ts         │  │   ├── wordFormatter.ts
+│   └── message.ts               │  │   ├── message.ts
+                                 │  │   ├── errorHandler.ts - NEW
+                                 │  │   ├── errorRecovery.ts - NEW
+                                 │  │   ├── toolSafety.ts - NEW
+                                 │  │   └── activityLog.ts - NEW
+                                 │  │
+                                 │  ├── api/ (6 files) - NEW DIRECTORY
+                                 │  │   ├── types.ts - Provider interfaces
+                                 │  │   ├── union.ts - Provider factory
+                                 │  │   ├── common.ts - Shared utilities
+                                 │  │   ├── mistralChat.ts - Mistral client
+                                 │  │   ├── openwebui.ts - OpenWebUI utils
+                                 │  │   └── openwebui-rag.ts - RAG integration
+                                 │  │
+                                 │  ├── settings/ (3 files) - NEW DIRECTORY
+                                 │  │   ├── schema.ts - Zod schema
+                                 │  │   ├── storage.ts - Validated storage
+                                 │  │   └── useSettings.ts - Vue composable
+                                 │  │
+                                 │  └── composables/ (1 file) - NEW DIRECTORY
+                                 │      └── useSettingsAdapter.ts
+```
+
+### File-by-File Comparison
+
+#### New Files (Fork Only)
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `src/api/mistralChat.ts` | Custom Mistral LangChain integration | ~150 |
+| `src/api/openwebui.ts` | Model fetching & caching utilities | ~106 |
+| `src/api/openwebui-rag.ts` | RAG/Knowledge Base queries | ~80 |
+| `src/api/types.ts` | TypeScript interfaces for all providers | ~100 |
+| `src/api/union.ts` | Provider factory pattern implementation | ~265 |
+| `src/settings/schema.ts` | Zod validation schema | ~157 |
+| `src/settings/storage.ts` | Validated localStorage with migration | ~280 |
+| `src/settings/useSettings.ts` | Reactive settings composable | ~68 |
+| `src/composables/useSettingsAdapter.ts` | Flat-to-nested settings bridge | ~215 |
+| `src/utils/errorHandler.ts` | Structured error handling | ~50 |
+| `src/utils/errorRecovery.ts` | Automatic recovery strategies | ~80 |
+| `src/utils/toolSafety.ts` | Word document operation validation | ~70 |
+| `src/utils/activityLog.ts` | Agent activity logging | ~60 |
+
+#### Modified Files
+
+| File | Changes |
+|------|---------|
+| `src/utils/settingPreset.ts` | +200 lines: Added Mistral & OpenWebUI settings, new localStorage keys |
+| `src/utils/settingForm.ts` | +12 lines: Added SettingForm type export |
+| `src/utils/constant.ts` | +80 lines: New providers in `availableAPIs`, model lists |
+| `src/utils/enum.ts` | +20 lines: New localStorage key enums |
+| `src/utils/common.ts` | +30 lines: `checkAuth()` for Mistral & OpenWebUI |
+| `src/pages/HomePage.vue` | +150 lines: Provider configs, model options, agent mode fallback |
+| `src/pages/SettingsPage.vue` | +200 lines: Dynamic model fetching, refresh button, watches |
+| `src/i18n/locales/en.json` | +60 lines: New provider translations |
+| `src/i18n/locales/zh-cn.json` | +60 lines: Chinese translations |
+
+### Provider Comparison
+
+| Aspect | Original (5 Providers) | Fork (7 Providers) |
+|--------|------------------------|-------------------|
+| **OpenAI** | ✅ ChatOpenAI | ✅ Same |
+| **Azure** | ✅ AzureChatOpenAI | ✅ Same |
+| **Gemini** | ✅ ChatGoogleGenerativeAI | ✅ Same |
+| **Groq** | ✅ ChatGroq | ✅ Same |
+| **Ollama** | ✅ ChatOllama | ✅ Same |
+| **Mistral** | ❌ Not available | ✅ **Custom MistralChat** |
+| **OpenWebUI** | ❌ Not available | ✅ **ChatOpenAI wrapper** |
+
+### Settings System Comparison
+
+| Aspect | Original | Fork |
+|--------|----------|------|
+| **Storage** | Individual localStorage keys | Flat localStorage (compatible) |
+| **Validation** | None | Zod schema (optional) |
+| **Provider Settings** | 5 providers | 7 providers |
+| **Migration** | N/A | Auto-migrate from legacy |
+| **Error Recovery** | None | Auto-correction |
+| **Types** | Implicit | Fully typed with generics |
+
+### Code Changes Summary
+
+```diff
+Statistics:
+- Original: ~45 source files, ~15,000 lines
++ Fork:     ~65 source files, ~22,000 lines
+
+New Code:
++ src/api/                    6 files,  ~700 lines
++ src/settings/               3 files,  ~500 lines  
++ src/composables/            1 file,   ~215 lines
++ src/types/                  6 files,  ~300 lines
++ src/utils/wordTools/        6 files,  ~600 lines (modularized)
++ src/utils/ (new)            4 files,  ~260 lines
+
+Modified Code:
+~ src/utils/settingPreset.ts  +200 lines (Mistral, OpenWebUI)
+~ src/utils/constant.ts       +80 lines  (providers, models)
+~ src/pages/HomePage.vue      +150 lines (provider configs)
+~ src/pages/SettingsPage.vue  +200 lines (dynamic models)
+~ src/i18n/locales/*.json     +120 lines (translations)
+```
+
+### API Flow Comparison
+
+**Original (OpenAI-based providers):**
+```
+HomePage.vue → LangChain SDK → Provider API
+         ↓
+   settingForm (localStorage)
+```
+
+**Fork (with Mistral/OpenWebUI):**
+```
+HomePage.vue → useSettingForm() → settingPreset (localStorage)
+         ↓
+    union.ts ModelCreators
+         ↓
+    ├── MistralChat (custom) → Mistral API
+    ├── ChatOpenAI (wrapped) → OpenWebUI → Backend
+    └── Other providers (unchanged)
+```
+
+### Key Architectural Decisions
+
+1. **Custom MistralChat Class**: Avoids CORS issues from OpenAI SDK's custom headers
+2. **OpenWebUI as First-Class Provider**: Not just an OpenAI adapter, but with model discovery
+3. **Flat localStorage Pattern**: Maintains compatibility with original while enabling new features
+4. **Agent Mode Fallback**: Graceful degradation for providers that don't support tool calling
 
 ---
 
@@ -442,10 +585,16 @@ This project maintains the same license as the original Word GPT Plus project.
 - **Word GPT Plus** - Original project by [Kuingsmile](https://github.com/Kuingsmile/word-GPT-Plus)
 - **Mistral AI** - For providing excellent AI models and API
 - **Open WebUI** - For creating a fantastic multi-backend AI gateway
-- **Claude Code** - For assistance in implementing these integrations
 
 ---
 
 ## 📞 Support
 
 For issues specific to these provider integrations, please open an issue in this repository. For general Word GPT Plus issues, refer to the [main repository](https://github.com/Kuingsmile/word-GPT-Plus).
+
+---
+
+**Version**: 2.0.1  
+**Last Updated**: January 6, 2026  
+**Original**: [Kuingsmile/word-GPT-Plus](https://github.com/Kuingsmile/word-GPT-Plus)
+
