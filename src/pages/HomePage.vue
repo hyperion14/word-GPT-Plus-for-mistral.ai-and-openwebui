@@ -172,7 +172,7 @@ import { useRouter } from 'vue-router'
 
 import { insertFormattedResult, insertResult } from '@/api/common'
 import { getAgentResponse, getChatResponse } from '@/api/union'
-import { useSettingsAdapter } from '@/composables/useSettingsAdapter'
+import useSettingForm from '@/utils/settingForm'
 import { checkAuth } from '@/utils/common'
 import { buildInPrompt, getBuiltInPrompt } from '@/utils/constant'
 import { localStorageKey } from '@/utils/enum'
@@ -184,7 +184,7 @@ import { createWordTools, WordToolName } from '@/utils/wordTools'
 const router = useRouter()
 const { t } = useI18n()
 
-const settingForm = useSettingsAdapter()
+const settingForm = useSettingForm()
 
 // CRITICAL FIX: Use local ref for selected provider (same as SettingsPage)
 const selectedProvider = ref(settingForm.value.api)
@@ -375,6 +375,18 @@ const currentModelOptions = computed(() => {
       presetOptions = settingPreset.mistralModelSelect.optionList || []
       customModels = getCustomModels('mistralCustomModels', 'mistralCustomModel')
       break
+    case 'openwebui':
+      // Load dynamically fetched models from localStorage (saved by fetchOpenWebUIModels)
+      const stored = localStorage.getItem('openwebuiFetchedModels')
+      if (stored) {
+        try {
+          presetOptions = JSON.parse(stored)
+        } catch {
+          presetOptions = []
+        }
+      }
+      customModels = getCustomModels('openwebuiCustomModels', 'openwebuiCustomModel')
+      break
     case 'azure':
       return []
     default:
@@ -397,6 +409,8 @@ const currentModelSelect = computed({
         return settingForm.value.groqModelSelect
       case 'mistral':
         return settingForm.value.mistralModelSelect
+      case 'openwebui':
+        return settingForm.value.openwebuiModelSelect
       case 'azure':
         return settingForm.value.azureDeploymentName
       default:
@@ -673,7 +687,15 @@ async function processChat(userMessage: HumanMessage, systemMessage?: string) {
   history.value.push(new AIMessage(''))
 
   // Use agent mode with tools if enabled
-  if (isAgentMode) {
+  // Note: OpenWebUI doesn't support tool calling, so we fall back to normal chat mode
+  const useAgentMode = isAgentMode && provider !== 'openwebui'
+  
+  if (isAgentMode && provider === 'openwebui') {
+    console.warn('[HomePage] OpenWebUI does not support agent mode with tools. Falling back to normal chat mode.')
+    messageUtil.warning('OpenWebUI does not support Agent mode. Using normal chat instead.')
+  }
+
+  if (useAgentMode) {
     const tools = getActiveTools()
 
     await getAgentResponse({

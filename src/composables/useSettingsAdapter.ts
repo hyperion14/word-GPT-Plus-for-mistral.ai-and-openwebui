@@ -6,6 +6,7 @@
 import { computed, Ref } from 'vue'
 
 import { Settings } from '@/settings/schema'
+import { SettingsStorage } from '@/settings/storage'
 import { useSettings } from '@/settings/useSettings'
 
 export interface FlatSettings {
@@ -134,7 +135,7 @@ export function useSettingsAdapter(): Ref<FlatSettings> {
       settings.value = {
         ...settings.value,
         localLanguage: flatSettings.localLanguage as 'en' | 'zh-cn',
-        replyLanguage: flatSettings.replyLanguage,
+        replyLanguage: flatSettings.replyLanguage as 'en' | 'zh-cn' | 'auto',
         provider: flatSettings.api as Settings['provider'],
         systemPrompt: flatSettings.systemPrompt,
         userPrompt: flatSettings.userPrompt,
@@ -200,6 +201,14 @@ export function useSettingsAdapter(): Ref<FlatSettings> {
           maxTokens: flatSettings.openwebuiMaxTokens,
         },
       }
+
+      // CRITICAL FIX: Explicitly save settings after update
+      // The deep watch in useSettings.ts may not trigger when the entire object is replaced
+      // This ensures settings are ALWAYS persisted when changed through the UI
+      console.log('💾 [SettingsAdapter] About to save settings. Provider:', settings.value.provider)
+      console.log('💾 [SettingsAdapter] Full settings object:', JSON.stringify(settings.value, null, 2))
+      SettingsStorage.save(settings.value)
+      console.log('💾 [SettingsAdapter] Save call completed')
     },
   })
 }

@@ -83,11 +83,12 @@ const ModelCreators: Record<string, (opts: any) => BaseChatModel> = {
 
   openwebui: (opts: OpenWebUIOptions) => {
     // Open WebUI API with JWT authentication
-    // Use /api/v1 endpoint which accepts JWT tokens
+    // The baseURL should be the OpenWebUI base path (e.g., http://localhost:3100/openwebui-api)
+    // OpenAI SDK will append /chat/completions automatically
     let baseURL = opts.openwebuiBaseURL.replace(/\/$/, '') // Remove trailing slash
 
-    // Add /api/v1 if not already present
-    if (!baseURL.includes('/api/v1')) {
+    // Add /api/v1 if not already present to get full OpenAI-compatible endpoint
+    if (!baseURL.endsWith('/api/v1') && !baseURL.endsWith('/v1')) {
       baseURL = `${baseURL}/api/v1`
     }
 
@@ -97,7 +98,7 @@ const ModelCreators: Record<string, (opts: any) => BaseChatModel> = {
       modelName: opts.openwebuiModel || 'llama3.1:latest',
       configuration: {
         apiKey: opts.openwebuiAPIKey, // This will be the JWT token
-        baseURL: `${baseURL}/v1`, // Ensure we use the correct API version
+        baseURL: baseURL, // Already contains /api/v1, SDK adds /chat/completions
       },
       temperature: opts.temperature ?? 0.7,
       maxTokens: opts.maxTokens ?? 1024,

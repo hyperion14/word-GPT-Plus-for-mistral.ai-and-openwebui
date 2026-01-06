@@ -35,10 +35,16 @@ export class SettingsStorage {
 
   static save(settings: Settings): void {
     try {
+      console.log('📝 [SettingsStorage] Attempting to save settings:', settings)
       const validated = SettingsSchema.parse(settings)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(validated))
+      console.log('✅ [SettingsStorage] Settings saved successfully to localStorage')
     } catch (error) {
-      console.error('Failed to save settings:', error)
+      console.error('❌ [SettingsStorage] Failed to save settings:', error)
+      console.error('❌ [SettingsStorage] Settings that failed validation:', settings)
+      if (error instanceof Error) {
+        console.error('❌ [SettingsStorage] Error details:', error.message)
+      }
     }
   }
 

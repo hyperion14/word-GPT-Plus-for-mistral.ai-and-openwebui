@@ -3,13 +3,14 @@
     <img src="./public/logo.svg" alt="Logo" height="100">
   </a>
 
-  <h2 align="center">Word GPT Plus - Enhanced Fork</h2>
+  <h2 align="center">Word GPT Plus - Enhanced Fork v2.0.1</h2>
   <p align="center">
     Word GPT Plus with additional AI provider integrations (Mistral AI & Open WebUI)
     <br />
     <a href="https://github.com/Kuingsmile/word-GPT-Plus">
       <img src="https://img.shields.io/badge/Based%20On-Kuingsmile%2Fword--GPT--Plus-blue?style=flat-square" alt="original repo" />
     </a>
+    <img src="https://img.shields.io/badge/Version-2.0.1-green?style=flat-square" alt="version" />
   </p>
 </div>
 
@@ -17,10 +18,20 @@
 
 A fork of the excellent [Word GPT Plus](https://github.com/Kuingsmile/word-GPT-Plus) by [Kuingsmile](https://github.com/Kuingsmile), with added support for:
 
-- **Mistral AI** - Native API integration (no CORS issues)
+- **Mistral AI** - Native API integration (no CORS issues) with full Agent mode support
 - **Open WebUI** - Multi-backend AI gateway with dynamic model discovery
 
-See [PLUGIN_PROVIDERS.md](./PLUGIN_PROVIDERS.md) for details.
+See [PLUGIN_PROVIDERS.md](./PLUGIN_PROVIDERS.md) for detailed configuration.
+
+---
+
+## 🆕 What's New in v2.0.1
+
+- ✅ **Fixed Settings Persistence** - All settings now save correctly
+- ✅ **OpenWebUI Model Display** - Models appear correctly on HomePage dropdown
+- ✅ **OpenWebUI API URL Fix** - Corrected endpoint path construction
+- ✅ **Agent Mode Fallback** - OpenWebUI gracefully falls back to chat mode
+- ✅ **Improved Architecture** - Uses flat localStorage pattern for reliability
 
 ---
 
@@ -52,15 +63,40 @@ See [README_org.md](./README_org.md#add-in-installation-guide) for detailed side
 
 Open Word GPT Plus → **Settings** tab → Select AI provider and enter API key:
 
-| Provider | Where to Get API Key |
-|----------|---------------------|
-| Mistral AI | https://console.mistral.ai |
-| Open WebUI | Your Open WebUI instance → Settings → API Keys |
-| OpenAI | https://platform.openai.com/account/api-keys |
-| Azure OpenAI | https://portal.azure.com |
-| Google Gemini | https://ai.google.dev |
-| Groq | https://console.groq.com/keys |
-| Ollama | Local instance (no key needed) |
+| Provider | Where to Get API Key | Agent Mode |
+|----------|---------------------|------------|
+| Mistral AI | https://console.mistral.ai | ✅ Full support |
+| Open WebUI | Your Open WebUI instance → Settings → API Keys | ⚠️ Chat only |
+| OpenAI | https://platform.openai.com/account/api-keys | ✅ Full support |
+| Azure OpenAI | https://portal.azure.com | ✅ Full support |
+| Google Gemini | https://ai.google.dev | ✅ Full support |
+| Groq | https://console.groq.com/keys | ✅ Full support |
+| Ollama | Local instance (no key needed) | ✅ Full support |
+
+---
+
+## 🌐 OpenWebUI Configuration
+
+> **Important**: OpenWebUI requires specific Base URL configuration for reverse proxy setups.
+
+### Base URL Format
+
+| Deployment | Base URL |
+|------------|----------|
+| Direct (same port) | `http://localhost:8080` |
+| **Nginx Reverse Proxy** | `http://localhost:3100/openwebui-api` |
+| Remote with Proxy | `https://your-domain.com/openwebui-api` |
+
+### Why `/openwebui-api`?
+
+When Word-GPT-Plus runs on port 3100 and Open WebUI on port 8080, you need a reverse proxy to avoid CORS issues. The plugin appends `/api/v1` automatically:
+
+```
+Your Input:    http://localhost:3100/openwebui-api
+Final URL:     http://localhost:3100/openwebui-api/api/v1/chat/completions
+```
+
+See [PLUGIN_PROVIDERS.md](./PLUGIN_PROVIDERS.md#open-webui-setup) for Nginx configuration examples.
 
 ---
 
@@ -72,21 +108,16 @@ Open Word GPT Plus → **Settings** tab → Select AI provider and enter API key
 # Copy and customize the template
 cp docker-compose.template.yml docker-compose.yml
 
-# Edit docker-compose.yml (optional customizations):
-# - Change port from 80 to 8080 if needed
-# - Adjust resource limits
-# - Enable Nginx reverse proxy for HTTPS
-
 # Start the service
 docker-compose up -d
 
-# Access at http://localhost
+# Access at http://localhost:3100
 ```
 
 The template includes:
 - Production-ready Node.js + Nginx setup
 - Resource limits and health checks
-- Optional Nginx reverse proxy for SSL/TLS
+- OpenWebUI reverse proxy configuration
 - Comprehensive configuration comments
 
 See [docker-compose.template.yml](./docker-compose.template.yml) for all options.
@@ -99,8 +130,9 @@ See [docker-compose.template.yml](./docker-compose.template.yml) for all options
 |----------|---------|
 | [README_org.md](./README_org.md) | Complete original documentation - features, usage, all AI providers |
 | [README_cn.md](./README_cn.md) | 简体中文版本 |
-| [PLUGIN_PROVIDERS.md](./PLUGIN_PROVIDERS.md) | New provider integrations (Mistral AI & Open WebUI) - configuration & architecture |
+| [PLUGIN_PROVIDERS.md](./PLUGIN_PROVIDERS.md) | **v2.0.1** - Mistral AI & Open WebUI configuration, architecture |
 | [CONTRIBUTING_FORK.md](./CONTRIBUTING_FORK.md) | Development setup, building from source, contributing |
+| [docs/openwebui_tool_integration.md](./docs/openwebui_tool_integration.md) | Future: Full OpenWebUI tool integration guide |
 
 ---
 
@@ -126,4 +158,4 @@ MIT License - Same as original [Word GPT Plus](https://github.com/Kuingsmile/wor
 
 ---
 
-**Updated**: January 2025
+**Updated**: January 2026 | **Version**: 2.0.1

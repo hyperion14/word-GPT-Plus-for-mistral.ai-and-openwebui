@@ -1,5 +1,7 @@
 # Custom AI Provider Plugins for Word GPT Plus
 
+> **Version 2.0.1** - Settings Persistence Fixed, OpenWebUI Integration Enhanced
+
 This fork adds support for two additional AI providers as first-class integrations:
 
 ## 🎯 New Providers
@@ -8,7 +10,7 @@ This fork adds support for two additional AI providers as first-class integratio
 Full integration with Mistral's native API, avoiding CORS issues that occur when using OpenAI-compatible endpoints.
 
 ### 2. Open WebUI
-First-class integration treating Open WebUI as a standalone multi-backend AI gateway, with dynamic model discovery.
+Integration treating Open WebUI as a multi-backend AI gateway, with dynamic model discovery.
 
 ---
 
@@ -20,7 +22,7 @@ First-class integration treating Open WebUI as a standalone multi-backend AI gat
   - [Mistral AI Setup](#mistral-ai-setup)
   - [Open WebUI Setup](#open-webui-setup)
 - [Architecture](#architecture)
-- [Pull Request Summary](#pull-request-summary)
+- [Version 2.0.1 Changes](#version-201-changes)
 - [Technical Implementation](#technical-implementation)
 
 ---
@@ -35,6 +37,7 @@ First-class integration treating Open WebUI as a standalone multi-backend AI gat
 - ✅ Custom model support
 - ✅ Temperature and token controls
 - ✅ Full i18n support (English & Chinese)
+- ✅ **Agent mode support** with tool calling
 
 ### Open WebUI Provider
 - ✅ First-class provider (not treated as OpenAI variant)
@@ -45,6 +48,7 @@ First-class integration treating Open WebUI as a standalone multi-backend AI gat
 - ✅ OpenAI-compatible streaming via LangChain
 - ✅ Custom model support
 - ✅ Full i18n support (English & Chinese)
+- ⚠️ **Chat mode only** - Agent mode falls back to chat (see [Tool Integration Guide](docs/openwebui_tool_integration.md))
 
 ---
 
@@ -66,9 +70,14 @@ npm run build
 # Deploy (copy dist folder to your deployment location)
 ```
 
-### From Release
+### Docker Deployment
 
-Download the latest release from the Releases page and follow the standard Word GPT Plus installation instructions.
+```bash
+# Build and run
+docker-compose up -d
+
+# Access at http://localhost:3100
+```
 
 ---
 
@@ -88,7 +97,7 @@ Download the latest release from the Releases page and follow the standard Word 
    - Enter your Mistral API key
    - Select a model from the dropdown (or enter a custom model)
    - Adjust temperature and max tokens as needed
-   - Save settings
+   - **Settings are saved automatically!**
 
 3. **Available Models**:
    - `mistral-large-latest` - Most capable model
@@ -100,63 +109,122 @@ Download the latest release from the Releases page and follow the standard Word 
 
 ### Open WebUI Setup
 
-1. **Prerequisites**:
-   - Running Open WebUI instance (local or remote)
-   - Admin access to Open WebUI
+> **Important**: Version 2.0.1 uses a specific Base URL format for reverse proxy deployments.
 
-2. **Get API Key**:
-   - Open Open WebUI in browser
-   - Go to Settings → Account
-   - Navigate to API Keys section
-   - Click "Create new API key"
-   - Copy the generated key
+#### 1. Prerequisites
+- Running Open WebUI instance (local or remote)
+- Admin access to Open WebUI for generating API keys/JWT tokens
 
-3. **Configure in Word GPT Plus**:
-   - Open Word GPT Plus settings
-   - Select **openwebui** as the provider
-   - Enter Base URL:
-     - For local: `http://localhost:3000/api`
-     - For remote: `https://your-domain.com/api`
-   - Enter your API key
-   - Click the **refresh icon** (🔄) next to Model dropdown
-   - Wait for models to load
-   - Select your desired model
-   - Adjust temperature and max tokens
-   - Save settings
+#### 2. Get JWT Token or API Key
 
-4. **Model Discovery**:
-   - Models are fetched dynamically from Open WebUI
-   - Click refresh to update the list
-   - Supports models from all configured backends:
-     - Ollama models (llama3.1, qwen, etc.)
-     - OpenAI models (gpt-4, gpt-3.5-turbo, etc.)
-     - Mistral models
-     - Gemini models
-     - Custom models you've added to Open WebUI
+**Option A - JWT Token (Recommended):**
+1. Open Open WebUI in browser
+2. Open Developer Tools (F12) → Application → Cookies
+3. Copy the `token` cookie value
 
-5. **CORS Configuration** (for remote instances):
+**Option B - API Key:**
+1. Open Open WebUI → Settings → Account → API Keys
+2. Click "Create new API key"
+3. Copy the generated key
 
-   If using Open WebUI on a different domain, configure CORS:
+#### 3. Configure Base URL
 
-   ```yaml
-   # docker-compose.yml or environment variables
-   environment:
-     - CORS_ALLOW_ORIGIN=https://your-word-gpt-domain.com;http://localhost:3100
-   ```
+> **⚠️ Critical: Base URL Format**
 
-   If using nginx reverse proxy:
+The Base URL format depends on your deployment:
 
-   ```nginx
-   location /api/ {
-       proxy_pass http://open-webui:8080/api/;
-       proxy_set_header Origin $http_origin;
-       # Let Open WebUI handle CORS headers
-   }
-   ```
+| Deployment | Base URL Format |
+|------------|----------------|
+| Direct (same port) | `http://localhost:8080` |
+| Nginx Reverse Proxy | `http://localhost:3100/openwebui-api` |
+| Remote with Proxy | `https://your-domain.com/openwebui-api` |
+
+**Why `/openwebui-api`?**
+
+When Word-GPT-Plus runs on port 3100 and needs to access Open WebUI on port 8080, you need a reverse proxy to avoid CORS issues:
+
+```nginx
+# Nginx configuration for Word-GPT-Plus
+server {
+    listen 3100;
+    
+    # Serve Word-GPT-Plus static files
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri /index.html;
+    }
+    
+    # Proxy to Open WebUI API
+    location /openwebui-api/ {
+        proxy_pass http://open-webui:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        
+        # For streaming responses
+        proxy_set_header Connection '';
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+    }
+}
+```
+
+**How the URL is constructed:**
+
+```
+Base URL:        http://localhost:3100/openwebui-api
+→ API Endpoint:  http://localhost:3100/openwebui-api/api/v1
+→ Chat Endpoint: http://localhost:3100/openwebui-api/api/v1/chat/completions
+→ Models:        http://localhost:3100/openwebui-api/api/v1/models
+```
+
+#### 4. Configure in Word GPT Plus
+
+1. Open Word GPT Plus settings
+2. Select **OpenWebUI** as the provider
+3. Enter Base URL (see format above)
+4. Enter JWT Token or API Key
+5. Click the **refresh icon** (🔄) next to Model dropdown
+6. Wait for models to load from your Open WebUI instance
+7. Select your desired model
+8. **All settings are saved automatically!**
+
+#### 5. Agent Mode Limitation
+
+> **Note**: OpenWebUI uses a different tool calling approach than OpenAI/LangChain. When you use Agent mode with OpenWebUI, the plugin automatically falls back to normal chat mode and shows a warning.
+
+For full tool integration, see [OpenWebUI Tool Integration Guide](docs/openwebui_tool_integration.md).
 
 ---
 
 ## 🏗️ Architecture
+
+### Version 2.0.1 Settings Architecture
+
+Word-GPT-Plus 2.0.1 uses a **flat localStorage** pattern for settings persistence:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  src/utils/settingPreset.ts                                 │
+│  ├── Setting_Names array (flat keys)                        │
+│  ├── settingPreset object with saveFunc/getFunc             │
+│  └── Each setting = separate localStorage key               │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  src/utils/settingForm.ts                                   │
+│  ├── Returns plain ref<SettingForm>                         │
+│  ├── Initializes from localStorage                          │
+│  └── Works with v-model + watch                             │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  SettingsPage.vue / HomePage.vue                            │
+│  ├── addWatch() creates individual watches per setting      │
+│  ├── Each change triggers saveFunc or localStorage.setItem  │
+│  └── Settings persist immediately                           │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Why Separate Providers?
 

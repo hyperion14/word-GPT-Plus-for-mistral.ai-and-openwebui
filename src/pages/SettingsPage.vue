@@ -426,22 +426,20 @@ import {
   Wrench,
   X,
 } from 'lucide-vue-next'
-import { watch } from 'vue'
-import { onBeforeMount, ref } from 'vue'
+import { onBeforeMount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchOpenWebUIModels, loadOpenWebUIModels, saveOpenWebUIModels } from '@/api/openwebui'
-import { useSettingsAdapter } from '@/composables/useSettingsAdapter'
+import useSettingForm from '@/utils/settingForm'
 import { SettingsStorage } from '@/settings/storage'
-import { useSettings } from '@/settings/useSettings'
 import { getLabel, getPlaceholder } from '@/utils/common'
 import { apiDisplayNames, availableAPIs, buildInPrompt } from '@/utils/constant'
 import { getGeneralToolDefinitions } from '@/utils/generalTools'
-import { SettingNames, settingPreset } from '@/utils/settingPreset'
+import { Setting_Names, SettingNames, settingPreset } from '@/utils/settingPreset'
 import { getWordToolDefinitions } from '@/utils/wordTools'
 
 const router = useRouter()
-const settingForm = useSettingsAdapter()
+const settingForm = useSettingForm()
 
 // DEBUG: Log the current API value
 console.log('🔍 [SettingsPage] settingForm.api =', settingForm.value.api)
@@ -460,7 +458,7 @@ const currentTab = ref('provider')
 
 // Watch for API provider changes to auto-fetch OpenWebUI models
 watch(
-  () => settingForm.api,
+  () => settingForm.value.api,
   newProvider => {
     if (newProvider === 'openwebui') {
       // Check if we have baseURL and JWT token configured
@@ -481,7 +479,7 @@ watch(
 watch(
   () => [settingForm.value.openwebuiBaseURL, settingForm.value.openwebuiAPIKey],
   ([newBaseURL, newApiKey]) => {
-    if (settingForm.api === 'openwebui' && newBaseURL && newApiKey) {
+    if (settingForm.value.api === 'openwebui' && newBaseURL && newApiKey) {
       // Auto-refresh models when Base URL or JWT Token changes
       setTimeout(() => {
         refreshOpenWebUIModels()
@@ -490,26 +488,38 @@ watch(
   },
 )
 
-// CRITICAL FIX: Explicitly watch settings changes to ensure persistence
-// The computed ref setter in useSettingsAdapter doesn't trigger the deep watch in useSettings.ts
-// This watch directly saves to storage when settings change
-let saveTimeout: NodeJS.Timeout | null = null
-watch(
-  settingForm,
-  () => {
-    // Debounce saves to prevent excessive writes
-    if (saveTimeout) clearTimeout(saveTimeout)
-    saveTimeout = setTimeout(() => {
-      // The adapter's setter should have already updated the underlying settings
-      // But we need to ensure it's saved - the deep watch in useSettings may not trigger
-      // So we manually trigger a save here
-      const settings = useSettings()
-      SettingsStorage.save(settings.value)
-      console.log('[SettingsPage] Settings saved via explicit watch')
-    }, 500)
-  },
-  { deep: true },
-)
+// CRITICAL FIX: Create individual watches for each setting property
+// This is the pattern from the original plugin that actually works with v-model on object properties
+// The computed ref approach doesn't trigger when individual properties change via v-model
+
+const addWatch = () => {
+  Setting_Names.forEach((key: SettingNames) => {
+    watch(
+      () => settingForm.value[key as keyof typeof settingForm.value],
+      (newValue) => {
+        const preset = settingPreset[key]
+        if (preset && preset.saveFunc) {
+          // Use the preset's save function if available
+          (preset as any).saveFunc(newValue)
+          console.log(`💾 [SettingsPage] Saved ${key} via saveFunc:`, newValue)
+        } else if (preset && preset.saveKey) {
+          // Otherwise save directly to localStorage with the save key
+          localStorage.setItem(preset.saveKey, String(newValue))
+          console.log(`💾 [SettingsPage] Saved ${key} to localStorage (key: ${preset.saveKey}):`, newValue)
+        } else {
+          // Fallback: save with the setting name as key
+          localStorage.setItem(key, String(newValue))
+          console.log(`💾 [SettingsPage] Saved ${key} to localStorage:`, newValue)
+        }
+      },
+      { deep: true },
+    )
+  })
+  console.log('✅ [SettingsPage] addWatch() initialized - individual watches for all settings created')
+}
+
+// CRITICAL: Call addWatch immediately to set up watches before any user interaction
+addWatch()
 
 // Word tools list - convert wordTools from Record to array
 const wordToolsList = [...getGeneralToolDefinitions(), ...Object.values(getWordToolDefinitions())]
@@ -963,6 +973,7 @@ onBeforeMount(() => {
   loadCustomModels()
   loadBuiltInPrompts()
   loadToolPreferences()
+  // addWatch() is now called immediately after definition, not here
 })
 
 function backToHome() {
