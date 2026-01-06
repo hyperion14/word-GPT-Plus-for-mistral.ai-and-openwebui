@@ -53,6 +53,17 @@ export const availableAPIs: IStringKeyMap = {
   openwebui: 'openwebui',
 }
 
+// Display names for API providers
+export const apiDisplayNames: Record<string, string> = {
+  official: 'OpenAI',
+  azure: 'Azure',
+  gemini: 'Gemini',
+  ollama: 'Ollama',
+  groq: 'Groq',
+  mistral: 'Mistral',
+  openwebui: 'Open WebUI',
+}
+
 // official API 可用的模型
 export const availableModels: string[] = [
   'gpt-5.2',

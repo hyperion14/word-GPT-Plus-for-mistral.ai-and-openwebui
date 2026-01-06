@@ -99,7 +99,7 @@
           </button>
         </div>
         <div class="model-controls">
-          <select v-model="settingForm.api" class="compact-select">
+          <select v-model="selectedProvider" class="compact-select">
             <option v-for="item in settingPreset.api.optionObj" :key="item.value" :value="item.value">
               {{ item.label.replace('official', 'OpenAI') }}
             </option>
@@ -172,19 +172,28 @@ import { useRouter } from 'vue-router'
 
 import { insertFormattedResult, insertResult } from '@/api/common'
 import { getAgentResponse, getChatResponse } from '@/api/union'
+import { useSettingsAdapter } from '@/composables/useSettingsAdapter'
 import { checkAuth } from '@/utils/common'
 import { buildInPrompt, getBuiltInPrompt } from '@/utils/constant'
 import { localStorageKey } from '@/utils/enum'
 import { createGeneralTools, GeneralToolName } from '@/utils/generalTools'
 import { message as messageUtil } from '@/utils/message'
-import useSettingForm from '@/utils/settingForm'
 import { settingPreset } from '@/utils/settingPreset'
 import { createWordTools, WordToolName } from '@/utils/wordTools'
 
 const router = useRouter()
 const { t } = useI18n()
 
-const settingForm = useSettingForm()
+const settingForm = useSettingsAdapter()
+
+// CRITICAL FIX: Use local ref for selected provider (same as SettingsPage)
+const selectedProvider = ref(settingForm.value.api)
+
+// Sync local ref with settingForm
+watch(selectedProvider, (newProvider) => {
+  console.log('🔄 [HomePage] selectedProvider changed to:', newProvider)
+  settingForm.value.api = newProvider
+})
 
 interface SavedPrompt {
   id: string
@@ -345,7 +354,7 @@ const currentModelOptions = computed(() => {
   let presetOptions: string[] = []
   let customModels: string[] = []
 
-  switch (settingForm.value.api) {
+  switch (selectedProvider.value) {  // Use selectedProvider instead of settingForm.value.api
     case 'official':
       presetOptions = settingPreset.officialModelSelect.optionList || []
       customModels = getCustomModels('customModels', 'customModel')
@@ -419,6 +428,10 @@ const currentModelSelect = computed({
       case 'azure':
         settingForm.value.azureDeploymentName = value
         localStorage.setItem(localStorageKey.azureDeploymentName, value)
+        break
+      case 'openwebui':
+        settingForm.value.openwebuiModelSelect = value
+        localStorage.setItem(localStorageKey.openwebuiModel, value)
         break
     }
   },
@@ -651,17 +664,11 @@ async function processChat(userMessage: HumanMessage, systemMessage?: string) {
     },
   }
 
-  console.log('DEBUG: Provider:', provider)
-  console.log('DEBUG: Settings mistralAPIKey:', settings.mistralAPIKey)
-  console.log('DEBUG: All settings:', settings)
-
   const currentConfig = providerConfigs[provider]
   if (!currentConfig) {
     messageUtil.error(t('notSupportedProvider'))
     return
   }
-
-  console.log('DEBUG: Current config for', provider, ':', currentConfig)
 
   history.value.push(new AIMessage(''))
 
@@ -752,8 +759,6 @@ function checkApiKey() {
     openwebuiAPIKey: settingForm.value.openwebuiAPIKey,
     openwebuiBaseURL: settingForm.value.openwebuiBaseURL,
   }
-
-  console.log('DEBUG checkApiKey:', auth)
 
   if (!checkAuth(auth)) {
     messageUtil.error(t('noAPIKey'))

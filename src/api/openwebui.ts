@@ -25,8 +25,8 @@ export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): P
     // Remove trailing slash and ensure we have the base URL
     const cleanBaseURL = baseURL.replace(/\/$/, '')
 
-    // Use /api/models endpoint which accepts JWT authentication
-    const modelsURL = `${cleanBaseURL}/api/models`
+    // Use /api/v1/models endpoint which accepts JWT authentication
+    const modelsURL = `${cleanBaseURL}/api/v1/models`
 
     console.log('[OpenWebUI] Fetching models from:', modelsURL)
 
@@ -39,7 +39,20 @@ export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): P
     })
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`)
+      let errorMessage = `Failed to fetch models: ${response.status} ${response.statusText}`
+
+      // Provide more specific error messages for common HTTP errors
+      if (response.status === 401) {
+        errorMessage = 'Authentication failed: Invalid JWT Token'
+      } else if (response.status === 403) {
+        errorMessage = 'Access denied: Check your JWT Token permissions'
+      } else if (response.status === 404) {
+        errorMessage = 'Open WebUI API endpoint not found. Check your Base URL.'
+      } else if (response.status >= 500) {
+        errorMessage = 'Open WebUI server error. Please check if your instance is running.'
+      }
+
+      throw new Error(errorMessage)
     }
 
     const data: OpenWebUIModelsResponse = await response.json()
@@ -52,7 +65,15 @@ export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): P
     return modelIds
   } catch (error) {
     console.error('[OpenWebUI] Error fetching models:', error)
-    throw error
+
+    // Provide more specific error messages for network issues
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new Error('Network error: Could not connect to Open WebUI server. Please check your Base URL.')
+    } else if (error instanceof Error) {
+      throw error
+    } else {
+      throw new Error('Unknown error occurred while fetching models from Open WebUI')
+    }
   }
 }
 

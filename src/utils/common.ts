@@ -1,4 +1,4 @@
-import { availableAPIs, languageMap } from './constant'
+import { apiDisplayNames, availableAPIs, languageMap } from './constant'
 
 export interface Auth {
   type: supportedPlatforms
@@ -44,12 +44,19 @@ export function getOptionList(map: Record<string, string>, from: 'key' | 'value'
       }))
 }
 
+export function getApiOptionList() {
+  return Object.keys(availableAPIs).map(key => ({
+    label: apiDisplayNames[key] || key,
+    value: availableAPIs[key],
+  }))
+}
+
 export const optionLists = {
   localLanguageList: [
     { label: 'English', value: 'en' },
     { label: '简体中文', value: 'zh-cn' },
   ],
-  apiList: getOptionList(availableAPIs),
+  apiList: getApiOptionList(),
   replyLanguageList: getOptionList(languageMap, 'value'),
 }
 

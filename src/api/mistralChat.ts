@@ -1,7 +1,7 @@
 import { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { AIMessage, AIMessageChunk, BaseMessage } from '@langchain/core/messages'
-import { ChatGeneration, ChatGenerationChunk, ChatResult } from '@langchain/core/outputs'
+import { ChatGenerationChunk, ChatResult } from '@langchain/core/outputs'
 
 interface MistralChatParams {
   apiKey: string
@@ -35,7 +35,7 @@ export class MistralChat extends BaseChatModel {
   async _generate(
     messages: BaseMessage[],
     options?: this['ParsedCallOptions'],
-    runManager?: CallbackManagerForLLMRun,
+    _runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
     const mistralMessages = messages.map(msg => {
       const type = msg._getType()
@@ -85,7 +85,7 @@ export class MistralChat extends BaseChatModel {
   async *_streamResponseChunks(
     messages: BaseMessage[],
     options?: this['ParsedCallOptions'],
-    runManager?: CallbackManagerForLLMRun,
+    _runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<ChatGenerationChunk> {
     const mistralMessages = messages.map(msg => {
       const type = msg._getType()
@@ -150,7 +150,7 @@ export class MistralChat extends BaseChatModel {
                   message: new AIMessageChunk(content),
                 })
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore parse errors
             }
           }
@@ -162,7 +162,7 @@ export class MistralChat extends BaseChatModel {
   }
 
   // Required by LangChain agent system
-  bindTools(tools: any[]): this {
+  bindTools(_tools: any[]): this {
     return this
   }
 }

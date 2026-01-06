@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-import { fetchKnowledgeBases, KnowledgeBase } from '../api/openwebui-rag'
+import { fetchKnowledgeBases as fetchKBFromAPI, KnowledgeBase } from '../api/openwebui-rag'
 import { useSettings } from '../settings/useSettings'
 
 const props = defineProps<{
@@ -142,7 +142,7 @@ async function fetchKnowledgeBases() {
   kbFetchError.value = null
 
   try {
-    const bases = await fetchKnowledgeBases(props.baseURL, props.jwtToken)
+    const bases = await fetchKBFromAPI(props.baseURL, props.jwtToken)
     knowledgeBases.value = bases
   } catch (error) {
     kbFetchError.value = error instanceof Error ? error.message : 'Failed to fetch knowledge bases'

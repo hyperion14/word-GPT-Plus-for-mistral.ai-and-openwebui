@@ -97,7 +97,7 @@ const ModelCreators: Record<string, (opts: any) => BaseChatModel> = {
       modelName: opts.openwebuiModel || 'llama3.1:latest',
       configuration: {
         apiKey: opts.openwebuiAPIKey, // This will be the JWT token
-        baseURL,
+        baseURL: `${baseURL}/v1`, // Ensure we use the correct API version
       },
       temperature: opts.temperature ?? 0.7,
       maxTokens: opts.maxTokens ?? 1024,

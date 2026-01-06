@@ -132,7 +132,7 @@ export const textTools: Record<string, WordToolDefinition> = {
       const { text = '' } = args
       return Word.run(async context => {
         const range = context.document.getSelection()
-        const paragraph = range.insertParagraph(text, 'After')
+        range.insertParagraph(text, 'After')
         await context.sync()
         return 'Successfully inserted paragraph'
       })
@@ -172,8 +172,8 @@ export const textTools: Record<string, WordToolDefinition> = {
           return 'No matches found'
         }
 
-        for (let i = 0; i < searchResults.items.length; i++) {
-          searchResults.items[i].insertText(replaceText, 'Replace')
+        for (const item of searchResults.items) {
+          item.insertText(replaceText, 'Replace')
         }
         await context.sync()
         return `Replaced ${searchResults.items.length} occurrences of "${searchText}"`

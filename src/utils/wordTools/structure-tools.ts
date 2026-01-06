@@ -42,7 +42,7 @@ export const structureTools: Record<string, WordToolDefinition> = {
       const { rows = 3, columns = 3 } = args
       return Word.run(async context => {
         const range = context.document.getSelection()
-        const table = range.insertTable(rows, columns, 'After')
+        range.insertTable(rows, columns, 'After')
         await context.sync()
         return `Successfully inserted ${rows}x${columns} table`
       })

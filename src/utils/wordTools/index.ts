@@ -1,5 +1,5 @@
 import { tool } from '@langchain/core/tools'
-import { z, ZodTypeAny } from 'zod'
+import { z } from 'zod'
 
 import { contentControlTools } from './content-control-tools'
 import { documentTools } from './document-tools'

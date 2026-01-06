@@ -12,12 +12,12 @@
   <Id>6b20e038-5f8e-4e3b-8481-976c5a9c0bc3</Id>
 
   <!--Version. Updates from the store only get triggered if there is a version change. -->
-  <Version>1.0.0.0</Version>
+  <Version>2.0.1.0</Version>
   <ProviderName>Kuingsmile</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <!-- The display name of your add-in. Used on the store and various places of the Office UI such as the add-ins dialog. -->
-  <DisplayName DefaultValue="Word GPT Plus" />
-  <Description DefaultValue="Integrate the Power of AI Directly into Word"/>
+  <DisplayName DefaultValue="Word GPT Plus (Mistral + OpenWebUI)" />
+  <Description DefaultValue="Integrate the Power of AI Directly into Word - with Mistral and OpenWebUI support"/>
 
   <!-- Icon for your add-in. Used on installation screens and the add-ins dialog. -->
   <IconUrl DefaultValue="http://localhost:3100/assets/icon-32.png" />
@@ -28,9 +28,7 @@
 
   <!-- Domains that will be allowed when navigating. For example, if you use ShowTaskpane and then have an href link, navigation will only be allowed if the domain is on this list. -->
   <AppDomains>
-    <AppDomain>AppDomain1</AppDomain>
-    <AppDomain>AppDomain2</AppDomain>
-    <AppDomain>AppDomain3</AppDomain>
+    <AppDomain>localhost</AppDomain>
   </AppDomains>
   <!--End Basic Settings. -->
 
@@ -130,14 +128,14 @@
       </bt:Urls>
       <!-- ShortStrings max characters==125. -->
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started with chatGPT!" />
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with GPT Plus!" />
         <bt:String id="CommandsGroup.Label" DefaultValue="GPT" />
         <bt:String id="TaskpaneButton.Label" DefaultValue="GPT Plus" />
       </bt:ShortStrings>
       <!-- LongStrings max characters==250. -->
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Your sample add-in loaded successfully. Go to the HOME tab and click the 'Show Taskpane' button to get started." />
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Taskpane" />
+        <bt:String id="GetStarted.Description" DefaultValue="Word GPT Plus with Mistral and OpenWebUI support loaded successfully. Go to the HOME tab and click the 'GPT Plus' button to get started." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open GPT Plus (Mistral + OpenWebUI)" />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

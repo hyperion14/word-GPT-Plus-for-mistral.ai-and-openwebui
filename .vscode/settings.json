@@ -60,5 +60,6 @@
   "i18n-ally.encoding": "utf-8",
   "css.validate": false,
   "scss.validate": false,
-  "less.validate": false
+  "less.validate": false,
+  "DockerRun.DisableAutoGenerateConfig": true
 }

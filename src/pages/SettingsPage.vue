@@ -68,9 +68,12 @@
                 <label class="setting-label">{{ $t('providerLabel') }}</label>
               </div>
               <div style="width: 100%">
-                <select v-model="settingForm.api" class="select-input">
+                <select 
+                  v-model="selectedProvider"
+                  class="select-input"
+                >
                   <option v-for="item in settingPreset.api.optionObj" :key="item.value" :value="item.value">
-                    {{ item.label.replace('official', 'OpenAI') }}
+                    {{ item.label }}
                   </option>
                 </select>
               </div>
@@ -80,12 +83,12 @@
           <!-- Dynamic API Configuration -->
           <div
             v-for="platform in Object.keys(availableAPIs)"
-            v-show="settingForm.api === platform"
+            v-show="selectedProvider === platform"
             :key="platform"
             class="api-config-section"
           >
             <h3 class="subsection-title">
-              {{ platform.replace('official', 'OpenAI') }}
+              {{ apiDisplayNames[platform] || platform }}
               {{ $t('configuration') }}
             </h3>
 
@@ -155,6 +158,9 @@
                   </div>
                   <div style="width: 100%; display: flex; gap: 8px; align-items: center">
                     <select v-model="settingForm[item as SettingNames]" class="select-input" style="flex: 1">
+                      <option v-if="platform === 'openwebui' && getMergedModelOptions(platform).length === 0" value="">
+                        Click refresh to fetch models (requires Base URL and JWT Token)
+                      </option>
                       <option v-for="option in getMergedModelOptions(platform)" :key="option" :value="option">
                         {{ option }}
                       </option>
@@ -165,16 +171,31 @@
                       class="icon-button"
                       :class="{ 'is-loading': isFetchingModels }"
                       :disabled="isFetchingModels"
-                      :title="isFetchingModels ? 'Fetching models...' : 'Refresh models from Open WebUI'"
+                      :title="
+                        isFetchingModels
+                          ? 'Fetching models...'
+                          : 'Refresh models from Open WebUI (requires valid JWT Token and Base URL)'
+                      "
                       @click="refreshOpenWebUIModels"
                     >
                       <RefreshCw :size="16" :class="{ spin: isFetchingModels }" />
                     </button>
                   </div>
                 </div>
+                <!-- Success message for OpenWebUI models fetch -->
+                <div v-if="platform === 'openwebui' && modelsFetchSuccess" style="padding: 8px 0">
+                  <span style="color: #10b981; font-size: 12px">✓ {{ modelsFetchSuccess }}</span>
+                </div>
                 <!-- Error message for OpenWebUI models fetch -->
                 <div v-if="platform === 'openwebui' && modelsFetchError" style="padding: 8px 0">
                   <span style="color: #ef4444; font-size: 12px">{{ modelsFetchError }}</span>
+                </div>
+                <!-- Info message for OpenWebUI JWT Token requirement -->
+                <div v-if="platform === 'openwebui' && item.includes('ModelSelect')" style="padding: 8px 0">
+                  <span style="color: #656d76; font-size: 11px; line-height: 1.4">
+                    ℹ️ Note: Open WebUI requires a JWT Token (not an API Key). Get it from your browser's DevTools >
+                    Application > Local Storage > token after logging into Open WebUI.
+                  </span>
                 </div>
               </div>
 
@@ -198,13 +219,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- OpenWebUI RAG Settings -->
-              <OpenWebUIRagSettings
-                v-if="platform === 'openwebui'"
-                :base-u-r-l="settingForm.openwebuiBaseURL"
-                :jwt-token="settingForm.openwebuiAPIKey"
-              />
             </div>
           </div>
         </div>
@@ -412,33 +426,102 @@ import {
   Wrench,
   X,
 } from 'lucide-vue-next'
-import { onBeforeMount, ref, watch } from 'vue'
+import { watch } from 'vue'
+import { onBeforeMount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchOpenWebUIModels, loadOpenWebUIModels, saveOpenWebUIModels } from '@/api/openwebui'
-import OpenWebUIRagSettings from '@/components/OpenWebUIRagSettings.vue'
+import { useSettingsAdapter } from '@/composables/useSettingsAdapter'
+import { SettingsStorage } from '@/settings/storage'
+import { useSettings } from '@/settings/useSettings'
 import { getLabel, getPlaceholder } from '@/utils/common'
-import { availableAPIs, buildInPrompt } from '@/utils/constant'
+import { apiDisplayNames, availableAPIs, buildInPrompt } from '@/utils/constant'
 import { getGeneralToolDefinitions } from '@/utils/generalTools'
-import useSettingForm from '@/utils/settingForm'
-import { Setting_Names, SettingNames, settingPreset } from '@/utils/settingPreset'
+import { SettingNames, settingPreset } from '@/utils/settingPreset'
 import { getWordToolDefinitions } from '@/utils/wordTools'
 
 const router = useRouter()
-const settingForm = useSettingForm()
+const settingForm = useSettingsAdapter()
+
+// DEBUG: Log the current API value
+console.log('🔍 [SettingsPage] settingForm.api =', settingForm.value.api)
+console.log('🔍 [SettingsPage] settingForm.value =', settingForm.value)
+
+// CRITICAL FIX: Use local ref for selected provider to ensure Vue reactivity
+const selectedProvider = ref(settingForm.value.api)
+
+// Sync local ref with settingForm
+watch(selectedProvider, (newProvider) => {
+  console.log('🔄 [SettingsPage] selectedProvider changed to:', newProvider)
+  settingForm.value.api = newProvider
+})
 
 const currentTab = ref('provider')
 
-// Word tools list
-const wordToolsList = [...getGeneralToolDefinitions(), ...getWordToolDefinitions()]
+// Watch for API provider changes to auto-fetch OpenWebUI models
+watch(
+  () => settingForm.api,
+  newProvider => {
+    if (newProvider === 'openwebui') {
+      // Check if we have baseURL and JWT token configured
+      const baseURL = settingForm.value.openwebuiBaseURL
+      const apiKey = settingForm.value.openwebuiAPIKey
+
+      if (baseURL && apiKey) {
+        // Auto-fetch models when OpenWebUI is selected
+        setTimeout(() => {
+          refreshOpenWebUIModels()
+        }, 100) // Small delay to ensure UI is ready
+      }
+    }
+  },
+)
+
+// Watch for OpenWebUI configuration changes to auto-refresh models
+watch(
+  () => [settingForm.value.openwebuiBaseURL, settingForm.value.openwebuiAPIKey],
+  ([newBaseURL, newApiKey]) => {
+    if (settingForm.api === 'openwebui' && newBaseURL && newApiKey) {
+      // Auto-refresh models when Base URL or JWT Token changes
+      setTimeout(() => {
+        refreshOpenWebUIModels()
+      }, 500) // Small delay to debounce rapid changes
+    }
+  },
+)
+
+// CRITICAL FIX: Explicitly watch settings changes to ensure persistence
+// The computed ref setter in useSettingsAdapter doesn't trigger the deep watch in useSettings.ts
+// This watch directly saves to storage when settings change
+let saveTimeout: NodeJS.Timeout | null = null
+watch(
+  settingForm,
+  () => {
+    // Debounce saves to prevent excessive writes
+    if (saveTimeout) clearTimeout(saveTimeout)
+    saveTimeout = setTimeout(() => {
+      // The adapter's setter should have already updated the underlying settings
+      // But we need to ensure it's saved - the deep watch in useSettings may not trigger
+      // So we manually trigger a save here
+      const settings = useSettings()
+      SettingsStorage.save(settings.value)
+      console.log('[SettingsPage] Settings saved via explicit watch')
+    }, 500)
+  },
+  { deep: true },
+)
+
+// Word tools list - convert wordTools from Record to array
+const wordToolsList = [...getGeneralToolDefinitions(), ...Object.values(getWordToolDefinitions())]
 
 const newCustomModel = ref<Record<string, string>>({})
 const customModelsMap = ref<Record<string, string[]>>({})
 
 // OpenWebUI dynamic models
-const openwebuiDynamicModels = ref<string[]>(loadOpenWebUIModels())
+const openwebuiDynamicModels = ref<string[]>(loadOpenWebUIModels() || [])
 const isFetchingModels = ref(false)
 const modelsFetchError = ref<string | null>(null)
+const modelsFetchSuccess = ref<string | null>(null)
 
 // Prompt management
 interface Prompt {
@@ -517,21 +600,32 @@ const tabs = [
 ]
 
 const getApiInputSettings = (platform: string) => {
-  return Object.keys(settingForm.value).filter(
+  // Get all keys from settingForm that start with the platform name
+  const formKeys = Object.keys(settingForm.value).filter(key => key.startsWith(platform))
+
+  // Filter for input type fields, excluding custom model fields
+  return formKeys.filter(
     key =>
-      key.startsWith(platform) && settingPreset[key as SettingNames].type === 'input' && !key.endsWith('CustomModel'),
+      settingPreset[key as SettingNames] &&
+      (settingPreset as any)[key as SettingNames]?.type === 'input' &&
+      !key.endsWith('CustomModel') &&
+      !key.endsWith('CustomModels'),
   )
 }
 
 const getApiNumSettings = (platform: string) => {
-  return Object.keys(settingForm.value).filter(
-    key => key.startsWith(platform) && settingPreset[key as SettingNames].type === 'inputNum',
+  const formKeys = Object.keys(settingForm.value).filter(key => key.startsWith(platform))
+
+  return formKeys.filter(
+    key => settingPreset[key as SettingNames] && (settingPreset as any)[key as SettingNames]?.type === 'inputNum',
   )
 }
 
 const getApiSelectSettings = (platform: string) => {
-  return Object.keys(settingForm.value).filter(
-    key => key.startsWith(platform) && settingPreset[key as SettingNames].type === 'select',
+  const formKeys = Object.keys(settingForm.value).filter(key => key.startsWith(platform))
+
+  return formKeys.filter(
+    key => settingPreset[key as SettingNames] && (settingPreset as any)[key as SettingNames]?.type === 'select',
   )
 }
 
@@ -541,7 +635,7 @@ const getCustomModelsKey = (platform: string): SettingNames | null => {
 }
 
 const loadCustomModels = () => {
-  const platforms = ['official', 'gemini', 'ollama', 'groq', 'mistral']
+  const platforms = ['official', 'gemini', 'ollama', 'groq', 'mistral', 'openwebui']
   platforms.forEach(platform => {
     const key = getCustomModelsKey(platform)
     if (key && settingPreset[key].getFunc) {
@@ -589,16 +683,13 @@ const getMergedModelOptions = (platform: string) => {
   const selectKey = `${platform}ModelSelect` as SettingNames
   const customModels = customModelsMap.value[platform] || []
 
-  // For OpenWebUI, use dynamically fetched models instead of hardcoded list
+  // For OpenWebUI, ONLY use dynamically fetched models (no fallback to hardcoded list)
   if (platform === 'openwebui') {
-    const dynamicModels = openwebuiDynamicModels.value
-    // Only use dynamic models if they've been fetched, otherwise fall back to preset
-    if (dynamicModels.length > 0) {
-      return [...customModels, ...dynamicModels]
-    }
+    const dynamicModels = openwebuiDynamicModels.value || []
+    return [...customModels, ...dynamicModels]
   }
 
-  const presetOptions = settingPreset[selectKey]?.optionList || []
+  const presetOptions = (settingPreset[selectKey] as any)?.optionList || []
   return [...customModels, ...presetOptions]
 }
 
@@ -606,23 +697,8 @@ const hasCustomModelsSupport = (platform: string) => {
   return getCustomModelsKey(platform) !== null
 }
 
-const addWatch = () => {
-  Setting_Names.forEach(key => {
-    watch(
-      () => settingForm.value[key],
-      () => {
-        if (settingPreset[key].saveFunc) {
-          ;(settingPreset[key] as any).saveFunc(settingForm.value[key])
-          console.log(`Saved setting ${key} via custom saveFunc with value: ${settingForm.value[key]}`)
-          return
-        }
-        localStorage.setItem(settingPreset[key].saveKey || key, settingForm.value[key] as string)
-        console.log(`Saved setting ${key} to localStorage with value: ${settingForm.value[key]}`)
-      },
-      { deep: true },
-    )
-  })
-}
+// Note: Auto-save is handled by useSettings() with 500ms debounce
+// No need for individual watch handlers here
 
 const loadPrompts = () => {
   const stored = localStorage.getItem('savedPrompts')
@@ -686,32 +762,6 @@ const deletePrompt = (id: string) => {
   if (index !== -1) {
     savedPrompts.value.splice(index, 1)
     savePromptsToStorage()
-  }
-}
-
-// OpenWebUI models fetching
-const refreshOpenWebUIModels = async () => {
-  const baseURL = settingForm.value.openwebuiBaseURL
-  const apiKey = settingForm.value.openwebuiAPIKey
-
-  if (!baseURL || !apiKey) {
-    modelsFetchError.value = 'Please configure Base URL and API Key first'
-    return
-  }
-
-  isFetchingModels.value = true
-  modelsFetchError.value = null
-
-  try {
-    const models = await fetchOpenWebUIModels(baseURL, apiKey)
-    openwebuiDynamicModels.value = models
-    saveOpenWebUIModels(models)
-    console.log('[SettingsPage] Successfully fetched', models.length, 'models from Open WebUI')
-  } catch (error: any) {
-    console.error('[SettingsPage] Failed to fetch Open WebUI models:', error)
-    modelsFetchError.value = error.message || 'Failed to fetch models'
-  } finally {
-    isFetchingModels.value = false
   }
 }
 
@@ -805,10 +855,10 @@ const loadToolPreferences = () => {
     try {
       enabledWordTools.value = new Set(JSON.parse(wordTools))
     } catch {
-      enabledWordTools.value = new Set(getWordToolDefinitions().map(t => t.name))
+      enabledWordTools.value = new Set(Object.values(getWordToolDefinitions()).map(t => t.name))
     }
   } else {
-    enabledWordTools.value = new Set(getWordToolDefinitions().map(t => t.name))
+    enabledWordTools.value = new Set(Object.values(getWordToolDefinitions()).map(t => t.name))
   }
 
   if (generalTools) {
@@ -855,12 +905,64 @@ const isGeneralTool = (toolName: string): boolean => {
   return generalToolNames.includes(toolName as any)
 }
 
+// OpenWebUI models fetching
+const refreshOpenWebUIModels = async () => {
+  const baseURL = settingForm.value.openwebuiBaseURL
+  const apiKey = settingForm.value.openwebuiAPIKey
+
+  if (!baseURL || !apiKey) {
+    modelsFetchError.value = 'Please configure Base URL and JWT Token first'
+    return
+  }
+
+  // Prevent multiple concurrent fetches
+  if (isFetchingModels.value) {
+    console.log('[SettingsPage] Model fetch already in progress, skipping')
+    return
+  }
+
+  isFetchingModels.value = true
+  modelsFetchError.value = null
+
+  try {
+    console.log('[SettingsPage] Fetching models from Open WebUI...')
+    const models = await fetchOpenWebUIModels(baseURL, apiKey)
+
+    if (models.length === 0) {
+      modelsFetchError.value = 'No models found. Make sure your Open WebUI instance is running and accessible.'
+    } else {
+      openwebuiDynamicModels.value = models
+      saveOpenWebUIModels(models)
+      modelsFetchSuccess.value = `Successfully fetched ${models.length} models from Open WebUI`
+      console.log('[SettingsPage] Successfully fetched', models.length, 'models from Open WebUI')
+
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        modelsFetchSuccess.value = null
+      }, 5000)
+    }
+  } catch (error: any) {
+    console.error('[SettingsPage] Failed to fetch Open WebUI models:', error)
+
+    // More specific error messages for common issues
+    if (error.message.includes('401') || error.message.includes('403')) {
+      modelsFetchError.value = 'Authentication failed. Please check your JWT Token.'
+    } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+      modelsFetchError.value = 'Network error. Please check your Base URL and ensure the Open WebUI server is running.'
+    } else {
+      modelsFetchError.value =
+        error.message || 'Failed to fetch models. Make sure you are using a valid JWT Token (not API Key).'
+    }
+  } finally {
+    isFetchingModels.value = false
+  }
+}
+
 onBeforeMount(() => {
   loadPrompts()
   loadCustomModels()
   loadBuiltInPrompts()
   loadToolPreferences()
-  addWatch()
 })
 
 function backToHome() {
