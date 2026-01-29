@@ -58,7 +58,10 @@ export interface FlatSettings {
   mistralMaxTokens: number
 
   // Open WebUI
-  openwebuiBaseURL: string
+  openwebuiURL: string // User-friendly OpenWebUI URL
+  openwebuiPluginURL: string // Plugin URL
+  openwebuiInstance: string
+  openwebuiBaseURL: string // Auto-computed base URL
   openwebuiAPIKey: string // Actually JWT token
   openwebuiModelSelect: string
   openwebuiTemperature: number
@@ -123,6 +126,9 @@ export function useSettingsAdapter(): Ref<FlatSettings> {
         mistralMaxTokens: settings.value.mistral.maxTokens,
 
         // Open WebUI - using jwtToken
+        openwebuiURL: settings.value.openwebui.openwebuiURL,
+        openwebuiPluginURL: settings.value.openwebui.pluginURL,
+        openwebuiInstance: settings.value.openwebui.instance,
         openwebuiBaseURL: settings.value.openwebui.baseURL,
         openwebuiAPIKey: settings.value.openwebui.jwtToken, // Note: UI calls it APIKey but it's JWT
         openwebuiModelSelect: settings.value.openwebui.model,
@@ -194,6 +200,9 @@ export function useSettingsAdapter(): Ref<FlatSettings> {
 
         openwebui: {
           ...settings.value.openwebui,
+          openwebuiURL: flatSettings.openwebuiURL,
+          pluginURL: flatSettings.openwebuiPluginURL,
+          instance: flatSettings.openwebuiInstance as 'jachat' | 'bhk' | 'jachat-external' | 'custom',
           baseURL: flatSettings.openwebuiBaseURL,
           jwtToken: flatSettings.openwebuiAPIKey,
           model: flatSettings.openwebuiModelSelect,

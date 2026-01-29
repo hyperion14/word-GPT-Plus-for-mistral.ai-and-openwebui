@@ -93,17 +93,88 @@
             </h3>
 
             <div class="setting-card">
+              <!-- Special: OpenWebUI URL Inputs (user-friendly) -->
+              <div v-if="platform === 'openwebui'">
+                <!-- OpenWebUI URL -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <label class="setting-label">{{ $t('openwebuiURLLabel') }}</label>
+                    <small class="setting-hint">
+                      {{ $t('openwebuiURLPlaceholder') }}
+                    </small>
+                  </div>
+                  <div class="setting-control full-width">
+                    <input
+                      v-model="settingForm.openwebuiURL"
+                      class="text-input"
+                      type="text"
+                      :placeholder="$t('openwebuiURLPlaceholder')"
+                    />
+                  </div>
+                </div>
+                <div class="setting-divider" />
+
+                <!-- Plugin URL -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <label class="setting-label">{{ $t('openwebuiPluginURLLabel') }}</label>
+                    <small class="setting-hint">
+                      {{ $t('openwebuiPluginURLPlaceholder') }}
+                    </small>
+                  </div>
+                  <div class="setting-control full-width">
+                    <input
+                      v-model="settingForm.openwebuiPluginURL"
+                      class="text-input"
+                      type="text"
+                      :placeholder="$t('openwebuiPluginURLPlaceholder')"
+                    />
+                  </div>
+                </div>
+                <div class="setting-divider" />
+
+                <!-- Computed Base URL (read-only display) -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <label class="setting-label">{{ $t('openwebuiBaseURLLabel') }}</label>
+                    <small class="setting-hint">
+                      {{ $t('openwebuiBaseURLPlaceholder') }}
+                    </small>
+                  </div>
+                  <div class="setting-control full-width">
+                    <input
+                      v-model="settingForm.openwebuiBaseURL"
+                      class="text-input"
+                      type="text"
+                      :placeholder="$t('openwebuiBaseURLPlaceholder')"
+                      disabled
+                      style="background-color: #f6f8fa; cursor: not-allowed;"
+                    />
+                  </div>
+                </div>
+                <div class="setting-divider" />
+              </div>
+
               <!-- Input Settings -->
               <div v-for="(item, index) in getApiInputSettings(platform)" :key="item">
                 <div class="setting-item">
                   <div class="setting-info">
                     <label class="setting-label">{{ $t(getLabel(item)) }}</label>
+                    <!-- Hint for JWT Token - shows the OpenWebUI URL -->
+                    <small v-if="platform === 'openwebui' && item === 'openwebuiAPIKey'" class="setting-hint">
+                      <span v-if="settingForm.openwebuiURL">
+                        Get JWT token from: {{ settingForm.openwebuiURL }}
+                      </span>
+                      <span v-else>
+                        Get JWT token from your Open-WebUI instance (enter URL above)
+                      </span>
+                    </small>
                   </div>
                   <div class="setting-control full-width">
                     <input
                       v-model="settingForm[item as SettingNames]"
                       class="text-input"
-                      type="text"
+                      :type="item.includes('APIKey') || item.includes('apiKey') ? 'password' : 'text'"
                       :placeholder="$t(getPlaceholder(item))"
                     />
                   </div>
@@ -426,7 +497,7 @@ import {
   Wrench,
   X,
 } from 'lucide-vue-next'
-import { onBeforeMount, ref, watch } from 'vue'
+import { onBeforeMount, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchOpenWebUIModels, loadOpenWebUIModels, saveOpenWebUIModels } from '@/api/openwebui'
@@ -437,6 +508,7 @@ import { apiDisplayNames, availableAPIs, buildInPrompt } from '@/utils/constant'
 import { getGeneralToolDefinitions } from '@/utils/generalTools'
 import { Setting_Names, SettingNames, settingPreset } from '@/utils/settingPreset'
 import { getWordToolDefinitions } from '@/utils/wordTools'
+import { useOpenWebUIInstance, useOpenWebUIURLResolver } from '@/composables/useOpenWebUIInstance'
 
 const router = useRouter()
 const settingForm = useSettingForm()
@@ -455,6 +527,35 @@ watch(selectedProvider, (newProvider) => {
 })
 
 const currentTab = ref('provider')
+
+// Setup Open-WebUI URL resolver (auto-computes base URL from user-friendly URLs)
+useOpenWebUIURLResolver(
+  toRef(settingForm.value, 'openwebuiURL'),
+  toRef(settingForm.value, 'openwebuiPluginURL'),
+  toRef(settingForm.value, 'openwebuiBaseURL'),
+  (openwebuiURL, pluginURL, resolvedBaseURL) => {
+    console.log(`🔄 [OpenWebUI] URLs changed:`)
+    console.log(`  OpenWebUI URL: ${openwebuiURL}`)
+    console.log(`  Plugin URL: ${pluginURL}`)
+    console.log(`  Resolved Base URL: ${resolvedBaseURL}`)
+
+    // Auto-refresh models when URLs change (if JWT token is present)
+    if (resolvedBaseURL && settingForm.value.openwebuiAPIKey) {
+      setTimeout(() => {
+        refreshOpenWebUIModels()
+      }, 500) // Delay to ensure URL is updated
+    }
+  }
+)
+
+// DEPRECATED: Keep old instance-based logic for backward compatibility (but inactive)
+useOpenWebUIInstance(
+  toRef(settingForm.value, 'openwebuiInstance'),
+  toRef(settingForm.value, 'openwebuiBaseURL'),
+  () => {
+    // Inactive - URL resolver takes precedence
+  }
+)
 
 // Watch for API provider changes to auto-fetch OpenWebUI models
 watch(
@@ -613,13 +714,17 @@ const getApiInputSettings = (platform: string) => {
   // Get all keys from settingForm that start with the platform name
   const formKeys = Object.keys(settingForm.value).filter(key => key.startsWith(platform))
 
-  // Filter for input type fields, excluding custom model fields
+  // Filter for input type fields, excluding custom model fields and URL fields (shown separately)
   return formKeys.filter(
     key =>
       settingPreset[key as SettingNames] &&
       (settingPreset as any)[key as SettingNames]?.type === 'input' &&
       !key.endsWith('CustomModel') &&
-      !key.endsWith('CustomModels'),
+      !key.endsWith('CustomModels') &&
+      // Exclude OpenWebUI URL fields (shown in separate section above)
+      key !== 'openwebuiURL' &&
+      key !== 'openwebuiPluginURL' &&
+      key !== 'openwebuiBaseURL',
   )
 }
 

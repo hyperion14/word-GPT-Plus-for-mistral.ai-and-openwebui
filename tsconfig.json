@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "useDefineForClassFields": true,
     "sourceMap": true,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.9",
     "baseUrl": ".",
     "types": ["office-js", "element-plus/global"],
     "paths": {

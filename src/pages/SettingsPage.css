@@ -1033,6 +1033,19 @@
   animation: spin 1s linear infinite;
 }
 
+/* Setting hint (helper text) */
+.setting-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #656d76;
+  font-weight: 400;
+}
+
+.setting-hint span {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
 /* Dark mode for icon button */
 @media (prefers-color-scheme: dark) {
   .icon-button {
@@ -1045,5 +1058,9 @@
     color: #58a6ff;
     border-color: #58a6ff;
     background: #161b22;
+  }
+
+  .setting-hint {
+    color: #8b949e;
   }
 }

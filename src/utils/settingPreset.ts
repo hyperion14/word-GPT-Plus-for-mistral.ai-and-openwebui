@@ -84,6 +84,9 @@ export const Setting_Names = [
   'mistralModelSelect',
   'mistralCustomModel',
   'mistralCustomModels',
+  'openwebuiURL',
+  'openwebuiPluginURL',
+  'openwebuiInstance',
   'openwebuiBaseURL',
   'openwebuiAPIKey',
   'openwebuiTemperature',
@@ -201,7 +204,21 @@ export const settingPreset = {
   mistralModelSelect: selectSetting('mistral-large-latest', 'mistralModel', availableModelsForMistral),
   mistralCustomModel: inputSetting(''),
   mistralCustomModels: customModelsetting('mistralCustomModels', 'mistralCustomModel'),
-  openwebuiBaseURL: inputSetting('http://localhost:3100/openwebui-api', 'openwebuiBaseURL'),
+  // User-friendly URL inputs
+  openwebuiURL: inputSetting('http://localhost:3010', 'openwebuiURL'),
+  openwebuiPluginURL: inputSetting('http://localhost:3100', 'openwebuiPluginURL'),
+  // Deprecated: Keep for backward compatibility
+  openwebuiInstance: selectSetting(
+    'jachat',
+    'openwebuiInstance',
+    [
+      { label: 'Jachat (localhost:3010)', value: 'jachat' },
+      { label: 'BHK (localhost:3000)', value: 'bhk' },
+      { label: 'Jachat External (wordai.hekanet.de)', value: 'jachat-external' },
+      { label: 'Custom URL', value: 'custom' },
+    ],
+  ),
+  openwebuiBaseURL: inputSetting('http://localhost:3100/jachat-api', 'openwebuiBaseURL'),
   openwebuiAPIKey: inputSetting('', 'openwebuiAPIKey'),
   openwebuiTemperature: inputNumSetting(0.7, 'openwebuiTemperature', 'temperature'),
   openwebuiMaxTokens: inputNumSetting(1024, 'openwebuiMaxTokens', 'maxTokens'),
