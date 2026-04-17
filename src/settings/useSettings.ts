@@ -44,9 +44,7 @@ export function useSettings() {
           stopWatcher = null
         }
       })
-    } catch (error) {
-      console.error('❌ Failed to initialize settings:', error)
-      // Return defaults on error
+    } catch {
       settingsInstance = ref(SettingsStorage.load())
     }
   }

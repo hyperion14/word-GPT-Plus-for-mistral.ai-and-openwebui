@@ -169,18 +169,28 @@ class WordFormatter {
     const formatParts = this.parseMarkdown(content)
 
     await Word.run(async context => {
-      const range = context.document.getSelection()
+      let insertionPoint: Word.Range
 
-      if (insertType.value === 'replace') {
-        range.clear()
-      }
+      try {
+        const range = context.document.getSelection()
+        range.load('text')
+        await context.sync()
 
-      let insertionPoint = range
+        if (insertType.value === 'replace') {
+          range.clear()
+        }
 
-      if (insertType.value === 'append') {
-        insertionPoint = range.getRange('End')
-      } else if (insertType.value === 'newLine') {
-        insertionPoint = range.getRange('After')
+        insertionPoint = range
+
+        if (insertType.value === 'append') {
+          insertionPoint = range.getRange('End')
+        } else if (insertType.value === 'newLine') {
+          insertionPoint = range.getRange('After')
+          insertionPoint.insertParagraph('', 'Before')
+        }
+      } catch {
+        // Selection lost (e.g. long-running pipe models) — insert at document end
+        insertionPoint = context.document.body.getRange('End')
         insertionPoint.insertParagraph('', 'Before')
       }
 

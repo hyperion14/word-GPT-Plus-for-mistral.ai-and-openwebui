@@ -57,7 +57,6 @@ export async function fetchKnowledgeBases(
   const cleanBaseURL = baseURL.replace(/\/$/, '')
   const url = `${cleanBaseURL}/api/v1/knowledge/`
 
-  console.log('[OpenWebUI RAG] Fetching knowledge bases from:', url)
 
   const response = await fetch(url, {
     headers: {
@@ -76,7 +75,6 @@ export async function fetchKnowledgeBases(
   }
 
   const data: KnowledgeListResponse = await response.json()
-  console.log('[OpenWebUI RAG] Fetched knowledge bases:', data.total)
   return data.items || []
 }
 
@@ -92,7 +90,6 @@ export async function fetchKnowledgeFiles(
   const cleanBaseURL = baseURL.replace(/\/$/, '')
   const url = `${cleanBaseURL}/api/v1/knowledge/${knowledgeBaseId}/files`
 
-  console.log('[OpenWebUI RAG] Fetching files for knowledge base:', knowledgeBaseId)
 
   const response = await fetch(url, {
     headers: {
@@ -109,7 +106,6 @@ export async function fetchKnowledgeFiles(
   }
 
   const data: KnowledgeFileListResponse = await response.json()
-  console.log('[OpenWebUI RAG] Fetched files:', data.total)
   return data.items || []
 }
 
@@ -130,7 +126,6 @@ export async function queryKnowledge(
   const cleanBaseURL = baseURL.replace(/\/$/, '')
   const url = `${cleanBaseURL}/api/v1/retrieval/query/collection`
 
-  console.log('[OpenWebUI RAG] Querying collections:', options.collectionNames, 'query:', query)
 
   const response = await fetch(url, {
     method: 'POST',

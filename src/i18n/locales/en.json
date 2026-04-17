@@ -110,7 +110,7 @@
   "openwebuiURLLabel": "Open-WebUI URL",
   "openwebuiURLPlaceholder": "Your Open-WebUI instance URL (e.g., http://localhost:3010, https://jachat.hekanet.de, https://chat.bhk-x.de)",
   "openwebuiPluginURLLabel": "Plugin URL",
-  "openwebuiPluginURLPlaceholder": "Word GPT Plus plugin URL (e.g., http://localhost:3100, https://wordai.hekanet.de)",
+  "openwebuiPluginURLPlaceholder": "OI & Mistral plugin URL (e.g., http://localhost:3100, https://wordai.hekanet.de)",
   "openwebuiInstanceLabel": "Open-WebUI Instance",
   "openwebuiInstancePlaceholder": "Select instance (use localhost:3100 for local)",
   "openwebuiAPIKeyLabel": "JWT Token",

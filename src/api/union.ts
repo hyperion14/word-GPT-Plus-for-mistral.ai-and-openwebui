@@ -81,50 +81,18 @@ const ModelCreators: Record<string, (opts: any) => BaseChatModel> = {
     })
   },
 
-  openwebui: (opts: OpenWebUIOptions) => {
-    // Open WebUI API with JWT authentication
-    // The baseURL should be the OpenWebUI base path (e.g., http://localhost:3100/openwebui-api)
-    // OpenAI SDK will append /chat/completions automatically
-    let baseURL = opts.openwebuiBaseURL.replace(/\/$/, '') // Remove trailing slash
-
-    // Add /api/v1 if not already present to get full OpenAI-compatible endpoint
-    if (!baseURL.endsWith('/api/v1') && !baseURL.endsWith('/v1')) {
-      baseURL = `${baseURL}/api/v1`
-    }
-
-    console.log('[OpenWebUI] Using baseURL:', baseURL)
-
-    return new ChatOpenAI({
-      modelName: opts.openwebuiModel || 'llama3.1:latest',
-      configuration: {
-        apiKey: opts.openwebuiAPIKey, // This will be the JWT token
-        baseURL: baseURL, // Already contains /api/v1, SDK adds /chat/completions
-      },
-      temperature: opts.temperature ?? 0.7,
-      maxTokens: opts.maxTokens ?? 1024,
-    })
-  },
+  openwebui: null, // Handled separately via direct fetch (OpenWebUI rejects ChatOpenAI's extra params)
 }
 
 const checkpointer = new MemorySaver()
 
 async function executeChatFlow(model: BaseChatModel, options: ProviderOptions): Promise<void> {
   try {
-    const agent = createAgent({
-      model,
-      tools: [],
-      checkpointer,
+    // Stream directly from model - avoids LangGraph agent overhead
+    // and extra parameters that some providers (OpenWebUI) don't support
+    const stream = await model.stream(options.messages, {
+      signal: options.abortSignal,
     })
-    const stream = await agent.stream(
-      {
-        messages: options.messages,
-      },
-      {
-        signal: options.abortSignal,
-        configurable: { thread_id: options.threadId },
-        streamMode: 'messages',
-      },
-    )
 
     let fullContent = ''
     for await (const chunk of stream) {
@@ -132,13 +100,12 @@ async function executeChatFlow(model: BaseChatModel, options: ProviderOptions): 
         break
       }
 
-      const content = typeof chunk[0].content === 'string' ? chunk[0].content : ''
+      const content = typeof chunk.content === 'string' ? chunk.content : ''
       fullContent += content
       options.onStream(fullContent)
     }
   } catch (error: any) {
     if (error.name === 'AbortError' || options.abortSignal?.aborted) {
-      // Don't mark as error if intentionally aborted
       throw error
     }
     options.errorIssue.value = true
@@ -176,29 +143,17 @@ async function executeAgentFlow(model: BaseChatModel, options: AgentOptions): Pr
       }
 
       stepCount++
-      console.log(`[Agent] Step ${stepCount}:`, {
-        messageCount: step.messages?.length || 0,
-        lastMessageType: step.messages?.[step.messages.length - 1]?.constructor?.name,
-      })
 
       const messages = step.messages || []
       const lastMessage = messages[messages.length - 1]
 
       if (!lastMessage) continue
 
-      // Cast to any for accessing tool-related properties
       const msg = lastMessage as any
-
-      console.log(`[Agent] Message type: ${msg._getType?.() || 'unknown'}`)
 
       // Handle AI messages with tool calls
       if (msg._getType?.() === 'ai' && msg.tool_calls?.length > 0) {
-        console.log('[Agent] Tool calls detected:', msg.tool_calls.length)
         for (const toolCall of msg.tool_calls) {
-          console.log('[Agent] Tool call:', {
-            name: toolCall.name,
-            args: toolCall.args,
-          })
           if (options.onToolCall) {
             options.onToolCall(toolCall.name, toolCall.args)
           }
@@ -209,11 +164,6 @@ async function executeAgentFlow(model: BaseChatModel, options: AgentOptions): Pr
       if (msg._getType?.() === 'tool') {
         const toolName = msg.name || 'unknown'
         const toolContent = String(msg.content || '')
-        console.log('[Agent] Tool result:', {
-          name: toolName,
-          contentLength: toolContent.length,
-          contentPreview: toolContent.substring(0, 100),
-        })
         if (options.onToolResult) {
           options.onToolResult(toolName, toolContent)
         }
@@ -224,17 +174,88 @@ async function executeAgentFlow(model: BaseChatModel, options: AgentOptions): Pr
         const content = typeof msg.content === 'string' ? msg.content : ''
         if (content && (!msg.tool_calls || msg.tool_calls.length === 0)) {
           fullContent = content
-          console.log('[Agent] AI response:', {
-            content,
-          })
           options.onStream(fullContent)
         }
       }
     }
-
-    console.log('[Agent] Flow completed. Total steps:', stepCount)
   } catch (error: any) {
+    if (error.name === 'AbortError' || options.abortSignal?.aborted) {
+      throw error
+    }
+    options.errorIssue.value = true
     console.error('[Agent] Error:', error)
+  } finally {
+    options.loading.value = false
+  }
+}
+
+async function executeOpenWebUIChatFlow(options: ProviderOptions): Promise<void> {
+  const opts = options as unknown as OpenWebUIOptions
+  const baseURL = opts.openwebuiBaseURL.replace(/\/$/, '')
+
+  const messages = options.messages.map((msg) => {
+    const type = (msg as any)._getType?.() || 'user'
+    const role = type === 'human' ? 'user' : type === 'ai' ? 'assistant' : type === 'system' ? 'system' : 'user'
+    const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+    return { role, content }
+  })
+
+  try {
+    const response = await fetch(`${baseURL}/api/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${opts.openwebuiAPIKey}`,
+      },
+      body: JSON.stringify({
+        model: opts.openwebuiModel || 'llama3.1:latest',
+        messages,
+        temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.maxTokens ?? 1024,
+        stream: true,
+      }),
+      signal: options.abortSignal,
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new Error(`${response.status}: ${errorBody}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response body')
+
+    const decoder = new TextDecoder()
+    let fullContent = ''
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done || options.abortSignal?.aborted) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed === 'data: [DONE]') continue
+
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(trimmed.slice(6))
+            const delta = json.choices?.[0]?.delta?.content
+            if (delta) {
+              fullContent += delta
+              options.onStream(fullContent)
+            }
+          } catch {
+            // skip malformed SSE
+          }
+        }
+      }
+    }
+  } catch (error: any) {
     if (error.name === 'AbortError' || options.abortSignal?.aborted) {
       throw error
     }
@@ -246,6 +267,11 @@ async function executeAgentFlow(model: BaseChatModel, options: AgentOptions): Pr
 }
 
 export async function getChatResponse(options: ProviderOptions) {
+  // OpenWebUI: use direct fetch (ChatOpenAI sends params that cause 422)
+  if (options.provider === 'openwebui') {
+    return executeOpenWebUIChatFlow(options)
+  }
+
   const creator = ModelCreators[options.provider]
   if (!creator) {
     throw new Error(`Unsupported provider: ${options.provider}`)

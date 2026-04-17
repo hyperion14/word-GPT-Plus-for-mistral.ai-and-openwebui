@@ -18,7 +18,32 @@
       "Bash(docker logs:*)",
       "Bash(docker-compose:*)",
       "Bash(docker inspect:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(openssl s_client -connect wordai.hekanet.de:443 -servername wordai.hekanet.de)",
+      "Bash(openssl x509 *)",
+      "Bash(sudo certbot *jk1406ka)",
+      "Bash(sudo -S certbot certificates)",
+      "Bash(sudo -S systemctl status certbot.timer)",
+      "Bash(sudo -S systemctl list-timers certbot*)",
+      "Bash(sudo -S crontab -l)",
+      "Bash(sudo -S cat /etc/letsencrypt/renewal/wordai.hekanet.de.conf)",
+      "Bash(sudo -S certbot renew --dry-run --cert-name wordai.hekanet.de)",
+      "Bash(sudo -S pkill -f \"certbot renew.*dry-run\")",
+      "Bash(sudo -S certbot certonly --webroot -w /home/developer/projects/production/nginx-docker/html -d wordai.hekanet.de --force-renewal --non-interactive)",
+      "Bash(npx tsc *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npx vite *)",
+      "Bash(docker compose *)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:docs.openwebui.com)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if 'version' in k.lower\\(\\) or 'name' in k.lower\\(\\)}, indent=2\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(pip show *)",
+      "Bash(yarn add *)",
+      "Bash(npm install *)",
+      "Bash(grep *)"
     ]
   }
 }

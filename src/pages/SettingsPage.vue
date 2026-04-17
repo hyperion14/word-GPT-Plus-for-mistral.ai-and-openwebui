@@ -508,21 +508,14 @@ import { apiDisplayNames, availableAPIs, buildInPrompt } from '@/utils/constant'
 import { getGeneralToolDefinitions } from '@/utils/generalTools'
 import { Setting_Names, SettingNames, settingPreset } from '@/utils/settingPreset'
 import { getWordToolDefinitions } from '@/utils/wordTools'
-import { useOpenWebUIInstance, useOpenWebUIURLResolver } from '@/composables/useOpenWebUIInstance'
+import { useOpenWebUIURLResolver } from '@/composables/useOpenWebUIInstance'
 
 const router = useRouter()
 const settingForm = useSettingForm()
 
-// DEBUG: Log the current API value
-console.log('🔍 [SettingsPage] settingForm.api =', settingForm.value.api)
-console.log('🔍 [SettingsPage] settingForm.value =', settingForm.value)
-
-// CRITICAL FIX: Use local ref for selected provider to ensure Vue reactivity
 const selectedProvider = ref(settingForm.value.api)
 
-// Sync local ref with settingForm
 watch(selectedProvider, (newProvider) => {
-  console.log('🔄 [SettingsPage] selectedProvider changed to:', newProvider)
   settingForm.value.api = newProvider
 })
 
@@ -533,27 +526,12 @@ useOpenWebUIURLResolver(
   toRef(settingForm.value, 'openwebuiURL'),
   toRef(settingForm.value, 'openwebuiPluginURL'),
   toRef(settingForm.value, 'openwebuiBaseURL'),
-  (openwebuiURL, pluginURL, resolvedBaseURL) => {
-    console.log(`🔄 [OpenWebUI] URLs changed:`)
-    console.log(`  OpenWebUI URL: ${openwebuiURL}`)
-    console.log(`  Plugin URL: ${pluginURL}`)
-    console.log(`  Resolved Base URL: ${resolvedBaseURL}`)
-
-    // Auto-refresh models when URLs change (if JWT token is present)
+  (_openwebuiURL, _pluginURL, resolvedBaseURL) => {
     if (resolvedBaseURL && settingForm.value.openwebuiAPIKey) {
       setTimeout(() => {
         refreshOpenWebUIModels()
-      }, 500) // Delay to ensure URL is updated
+      }, 500)
     }
-  }
-)
-
-// DEPRECATED: Keep old instance-based logic for backward compatibility (but inactive)
-useOpenWebUIInstance(
-  toRef(settingForm.value, 'openwebuiInstance'),
-  toRef(settingForm.value, 'openwebuiBaseURL'),
-  () => {
-    // Inactive - URL resolver takes precedence
   }
 )
 
@@ -589,10 +567,6 @@ watch(
   },
 )
 
-// CRITICAL FIX: Create individual watches for each setting property
-// This is the pattern from the original plugin that actually works with v-model on object properties
-// The computed ref approach doesn't trigger when individual properties change via v-model
-
 const addWatch = () => {
   Setting_Names.forEach((key: SettingNames) => {
     watch(
@@ -600,26 +574,18 @@ const addWatch = () => {
       (newValue) => {
         const preset = settingPreset[key]
         if (preset && preset.saveFunc) {
-          // Use the preset's save function if available
           (preset as any).saveFunc(newValue)
-          console.log(`💾 [SettingsPage] Saved ${key} via saveFunc:`, newValue)
         } else if (preset && preset.saveKey) {
-          // Otherwise save directly to localStorage with the save key
           localStorage.setItem(preset.saveKey, String(newValue))
-          console.log(`💾 [SettingsPage] Saved ${key} to localStorage (key: ${preset.saveKey}):`, newValue)
         } else {
-          // Fallback: save with the setting name as key
           localStorage.setItem(key, String(newValue))
-          console.log(`💾 [SettingsPage] Saved ${key} to localStorage:`, newValue)
         }
       },
       { deep: true },
     )
   })
-  console.log('✅ [SettingsPage] addWatch() initialized - individual watches for all settings created')
 }
 
-// CRITICAL: Call addWatch immediately to set up watches before any user interaction
 addWatch()
 
 // Word tools list - convert wordTools from Record to array
@@ -740,7 +706,9 @@ const getApiSelectSettings = (platform: string) => {
   const formKeys = Object.keys(settingForm.value).filter(key => key.startsWith(platform))
 
   return formKeys.filter(
-    key => settingPreset[key as SettingNames] && (settingPreset as any)[key as SettingNames]?.type === 'select',
+    key =>
+      settingPreset[key as SettingNames] &&
+      (settingPreset as any)[key as SettingNames]?.type === 'select',
   )
 }
 
@@ -1031,16 +999,12 @@ const refreshOpenWebUIModels = async () => {
   }
 
   // Prevent multiple concurrent fetches
-  if (isFetchingModels.value) {
-    console.log('[SettingsPage] Model fetch already in progress, skipping')
-    return
-  }
+  if (isFetchingModels.value) return
 
   isFetchingModels.value = true
   modelsFetchError.value = null
 
   try {
-    console.log('[SettingsPage] Fetching models from Open WebUI...')
     const models = await fetchOpenWebUIModels(baseURL, apiKey)
 
     if (models.length === 0) {
@@ -1048,8 +1012,7 @@ const refreshOpenWebUIModels = async () => {
     } else {
       openwebuiDynamicModels.value = models
       saveOpenWebUIModels(models)
-      modelsFetchSuccess.value = `Successfully fetched ${models.length} models from Open WebUI`
-      console.log('[SettingsPage] Successfully fetched', models.length, 'models from Open WebUI')
+      modelsFetchSuccess.value = `Successfully fetched ${models.length} models`
 
       // Clear success message after 5 seconds
       setTimeout(() => {
@@ -1057,8 +1020,6 @@ const refreshOpenWebUIModels = async () => {
       }, 5000)
     }
   } catch (error: any) {
-    console.error('[SettingsPage] Failed to fetch Open WebUI models:', error)
-
     // More specific error messages for common issues
     if (error.message.includes('401') || error.message.includes('403')) {
       modelsFetchError.value = 'Authentication failed. Please check your JWT Token.'

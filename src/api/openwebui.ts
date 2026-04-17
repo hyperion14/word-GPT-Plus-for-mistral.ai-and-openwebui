@@ -16,19 +16,19 @@ export interface OpenWebUIModelsResponse {
 
 /**
  * Fetch available models from Open WebUI instance
- * @param baseURL - Open WebUI base URL (e.g., https://wordai.hekanet.de)
+ * Uses /api/models which returns only models enabled for the authenticated user
+ * (respects admin permissions set in OpenWebUI)
+ * @param baseURL - Open WebUI base URL (e.g., https://wordai.hekanet.de/bhk-api)
  * @param jwtToken - Open WebUI JWT token (from login)
  * @returns Array of model IDs
  */
 export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): Promise<string[]> {
   try {
-    // Remove trailing slash and ensure we have the base URL
     const cleanBaseURL = baseURL.replace(/\/$/, '')
 
-    // Use /api/v1/models endpoint which accepts JWT authentication
-    const modelsURL = `${cleanBaseURL}/api/v1/models`
-
-    console.log('[OpenWebUI] Fetching models from:', modelsURL)
+    // /api/models returns only models the user has access to (filtered by admin permissions)
+    // /api/v1/models would return ALL models regardless of permissions
+    const modelsURL = `${cleanBaseURL}/api/models`
 
     const response = await fetch(modelsURL, {
       method: 'GET',
@@ -41,7 +41,6 @@ export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): P
     if (!response.ok) {
       let errorMessage = `Failed to fetch models: ${response.status} ${response.statusText}`
 
-      // Provide more specific error messages for common HTTP errors
       if (response.status === 401) {
         errorMessage = 'Authentication failed: Invalid JWT Token'
       } else if (response.status === 403) {
@@ -55,18 +54,25 @@ export async function fetchOpenWebUIModels(baseURL: string, jwtToken: string): P
       throw new Error(errorMessage)
     }
 
-    const data: OpenWebUIModelsResponse = await response.json()
+    const data = await response.json()
 
-    // Extract model IDs from the response
-    const modelIds = data.data.map((model: OpenWebUIModel) => model.id)
+    // /api/models returns either:
+    // - Array of model objects directly: [{id, name, ...}, ...]
+    // - Or wrapped: {data: [{id, name, ...}, ...]}
+    let models: OpenWebUIModel[]
+    if (Array.isArray(data)) {
+      models = data
+    } else if (data.data && Array.isArray(data.data)) {
+      models = data.data
+    } else {
+      models = []
+    }
 
-    console.log('[OpenWebUI] Fetched models:', modelIds)
-
+    const modelIds = models.map((model: OpenWebUIModel) => model.id)
     return modelIds
   } catch (error) {
     console.error('[OpenWebUI] Error fetching models:', error)
 
-    // Provide more specific error messages for network issues
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
       throw new Error('Network error: Could not connect to Open WebUI server. Please check your Base URL.')
     } else if (error instanceof Error) {

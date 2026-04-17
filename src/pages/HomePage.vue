@@ -191,7 +191,6 @@ const selectedProvider = ref(settingForm.value.api)
 
 // Sync local ref with settingForm
 watch(selectedProvider, (newProvider) => {
-  console.log('🔄 [HomePage] selectedProvider changed to:', newProvider)
   settingForm.value.api = newProvider
 })
 
@@ -525,7 +524,8 @@ async function sendMessage() {
       messageUtil.info(t('generationStop'))
     } else {
       console.error(error)
-      messageUtil.error(t('failedToResponse'))
+      const errMsg = error?.message || String(error)
+      messageUtil.error(`${t('failedToResponse')}: ${errMsg}`)
       history.value.pop()
     }
   } finally {
@@ -570,8 +570,8 @@ async function applyQuickAction(actionKey: keyof typeof buildInPrompt) {
       messageUtil.info(t('generationStop'))
     } else {
       console.error(error)
-      messageUtil.error(t('failedToProcessAction'))
-      // Remove failed message
+      const errMsg = error?.message || String(error)
+      messageUtil.error(`${t('failedToProcessAction')}: ${errMsg}`)
       history.value.pop()
     }
   } finally {

@@ -50,10 +50,9 @@ export const localStorageKey = {
   mistralCustomModel: 'mistralCustomModel',
   mistralCustomModels: 'mistralCustomModels',
   // openwebui api
-  openwebuiURL: 'openwebuiURL', // User-friendly OpenWebUI URL
-  openwebuiPluginURL: 'openwebuiPluginURL', // Plugin URL
-  openwebuiInstance: 'openwebuiInstance',
-  openwebuiBaseURL: 'openwebuiBaseURL', // Computed base URL
+  openwebuiURL: 'openwebuiURL',
+  openwebuiPluginURL: 'openwebuiPluginURL',
+  openwebuiBaseURL: 'openwebuiBaseURL',
   openwebuiAPIKey: 'openwebuiAPIKey',
   openwebuiModel: 'openwebuiModel',
   openwebuiTemperature: 'openwebuiTemperature',

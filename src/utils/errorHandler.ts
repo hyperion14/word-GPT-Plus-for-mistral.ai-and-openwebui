@@ -99,16 +99,7 @@ export function handleLLMError(error: unknown): LLMError {
 export function showUserFriendlyError(error: unknown): void {
   const llmError = handleLLMError(error)
 
-  // Show error to user
-  console.error(`[${llmError.type}] ${llmError.message}`, llmError.originalError)
-
-  // In a real app, you would show this in a toast/notification
-  // For now, we'll just log it
-  console.log('User message:', llmError.userMessage)
-
-  if (llmError.troubleshootingUrl) {
-    console.log('Troubleshooting:', llmError.troubleshootingUrl)
-  }
+  console.error(`[${llmError.type}] ${llmError.message}`)
 }
 
 /**

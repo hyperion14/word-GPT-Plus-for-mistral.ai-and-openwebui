@@ -118,7 +118,6 @@ function onToolCall(toolName: string, args: any) {
   currentTool.value = { name: toolName }
   executionStart.value = Date.now()
 
-  console.log(`[Agent] Calling tool: ${toolName}`, args)
 }
 
 function onToolResult(toolName: string, result: any) {
@@ -137,8 +136,6 @@ function onToolResult(toolName: string, result: any) {
     toolName,
     result,
   })
-
-  console.log(`[Agent] Tool result: ${toolName}`, result)
 
   currentTool.value = null
   executionStart.value = null

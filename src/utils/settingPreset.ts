@@ -1,4 +1,5 @@
 import { i18n } from '@/i18n'
+import { getPluginURL, resolveBaseURL } from '@/composables/useOpenWebUIInstance'
 
 import { forceNumber, optionLists } from './common'
 import {
@@ -86,7 +87,6 @@ export const Setting_Names = [
   'mistralCustomModels',
   'openwebuiURL',
   'openwebuiPluginURL',
-  'openwebuiInstance',
   'openwebuiBaseURL',
   'openwebuiAPIKey',
   'openwebuiTemperature',
@@ -206,19 +206,26 @@ export const settingPreset = {
   mistralCustomModels: customModelsetting('mistralCustomModels', 'mistralCustomModel'),
   // User-friendly URL inputs
   openwebuiURL: inputSetting('http://localhost:3010', 'openwebuiURL'),
-  openwebuiPluginURL: inputSetting('http://localhost:3100', 'openwebuiPluginURL'),
-  // Deprecated: Keep for backward compatibility
-  openwebuiInstance: selectSetting(
-    'jachat',
-    'openwebuiInstance',
-    [
-      { label: 'Jachat (localhost:3010)', value: 'jachat' },
-      { label: 'BHK (localhost:3000)', value: 'bhk' },
-      { label: 'Jachat External (wordai.hekanet.de)', value: 'jachat-external' },
-      { label: 'Custom URL', value: 'custom' },
-    ],
-  ),
-  openwebuiBaseURL: inputSetting('http://localhost:3100/jachat-api', 'openwebuiBaseURL'),
+  openwebuiPluginURL: {
+    defaultValue: '',
+    saveKey: 'openwebuiPluginURL' as keyOfLocalStorageKey,
+    type: 'input' as componentType,
+    // pluginURL is ALWAYS the current host - no localStorage, no conditions
+    getFunc: () => getPluginURL(),
+    saveFunc: (value: string) => localStorage.setItem('openwebuiPluginURL', value),
+  },
+  openwebuiBaseURL: {
+    defaultValue: '',
+    saveKey: 'openwebuiBaseURL' as keyOfLocalStorageKey,
+    type: 'input' as componentType,
+    // Always recompute: pluginURL from window.location, openwebuiURL from localStorage
+    getFunc: () => {
+      const pluginURL = getPluginURL()
+      const openwebuiURL = localStorage.getItem('openwebuiURL') || 'http://localhost:3010'
+      return resolveBaseURL(openwebuiURL, pluginURL)
+    },
+    saveFunc: (value: string) => localStorage.setItem('openwebuiBaseURL', value),
+  },
   openwebuiAPIKey: inputSetting('', 'openwebuiAPIKey'),
   openwebuiTemperature: inputNumSetting(0.7, 'openwebuiTemperature', 'temperature'),
   openwebuiMaxTokens: inputNumSetting(1024, 'openwebuiMaxTokens', 'maxTokens'),

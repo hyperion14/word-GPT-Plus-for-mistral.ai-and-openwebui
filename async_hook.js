@@ -1,3 +1,4 @@
-import { MockAsyncLocalStorage } from '@langchain/core/singletons'
-const AsyncLocalStorage = MockAsyncLocalStorage
-export { AsyncLocalStorage }
+export class AsyncLocalStorage {
+  getStore() {}
+  run(_, callback) { return callback() }
+}

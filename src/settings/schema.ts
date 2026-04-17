@@ -70,8 +70,6 @@ export const SettingsSchema = z.object({
     // User-friendly URLs
     openwebuiURL: z.string().default('http://localhost:3010'), // User's known OpenWebUI URL
     pluginURL: z.string().default('http://localhost:3100'), // Plugin proxy URL
-    // Computed/internal fields
-    instance: z.enum(['jachat', 'bhk', 'jachat-external', 'custom']).default('jachat'),
     jwtToken: z.string().default(''),
     baseURL: z.string().default('http://localhost:3100/jachat-api'), // Auto-computed from above URLs
     model: z.string().default(''),
@@ -144,7 +142,6 @@ export const defaultSettings: Settings = {
   openwebui: {
     openwebuiURL: 'http://localhost:3010',
     pluginURL: 'http://localhost:3100',
-    instance: 'jachat',
     jwtToken: '',
     baseURL: 'http://localhost:3100/jachat-api',
     model: '',
